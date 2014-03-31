@@ -20,6 +20,7 @@ inline cl::Program program_from_file(const cl::Context& context,
   char *code = NULL;
 
   try {
+    MICROBENCH_START(read_and_compile_program);
     fp = fopen(file_path, "rb");
     if (!fp)
       throw std::runtime_error("fopen() failed");
@@ -43,6 +44,7 @@ inline cl::Program program_from_file(const cl::Context& context,
 
     fclose(fp);
     delete[] code;
+    MICROBENCH_END(read_and_compile_program);
     return program;
   } catch (...) {
     fclose(fp);
@@ -53,6 +55,7 @@ inline cl::Program program_from_file(const cl::Context& context,
 
 int main(int argc, const char* argv[]) {
   try {
+    MICROBENCH_START(setup_opencl_device);
     VECTOR_CLASS<cl::Platform> platforms;
     cl::Platform::get(&platforms);
 
@@ -76,6 +79,7 @@ int main(int argc, const char* argv[]) {
         "BrandesKernels.cl");
 
     cl::Kernel kernel(program, "square");
+    MICROBENCH_END(setup_opencl_device);
 
     // TODO(stupaq) short test
     float* data = new float[DATA_SIZE];
