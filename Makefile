@@ -1,12 +1,11 @@
 # @author Mateusz Machalica
 
-CPPFLAGS	:= -I /usr/local/cuda-5.5/include/ -I /opt/cuda/include/ -std=c++11
-CPPOPT		:= -O2
-CPPWARN		:= -Wall -Wextra
-LDFLAGS		:= -L /usr/lib64/nvidia -l OpenCL
+CPPFLAGS	= -Wall -Wextra -I /usr/local/cuda-5.5/include/ -I /opt/cuda/include/ -std=c++0x -O2
+LDFLAGS		= -L /usr/lib64/nvidia
+LDLIBS		= -lOpenCL -lstdc++
 
 brandes: Main.cpp
-	g++ $(CPPFLAGS) $(CPPOPT) $(CPPWARN) $(LDFLAGS) $< -o $@
+	g++ $(CPPFLAGS) $(LDFLAGS) $< $(LDLIBS) -o $@
 
 clean:
 	-rm -rf brandes
