@@ -2,8 +2,9 @@
 #ifndef MICROBENCH_H_
 #define MICROBENCH_H_
 
+#include <cstdio>
+
 #include <chrono>
-#include <iostream>
 
 #define GCC_VERSION (__GNUC__ * 10000 \
     + __GNUC_MINOR__ * 100 \
@@ -21,7 +22,7 @@ typedef std::chrono::microseconds MicroBenchUnits;
   MicroBenchClock::time_point name ## _start = MicroBenchClock::now();
 #define MICROBENCH_END(name)\
   MicroBenchClock::time_point name ## _end = MicroBenchClock::now();\
-  std::cerr << #name << " : " << std::chrono::duration_cast<MicroBenchUnits>(name ## _end - name ## _start).count() << "\n";
+  fprintf(stderr, #name ":\t%ld\n", std::chrono::duration_cast<MicroBenchUnits>(name ## _end - name ## _start).count());
 #else
 #define MICROBENCH_START(name)
 #define MICROBENCH_END(name)

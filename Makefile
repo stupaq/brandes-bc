@@ -1,8 +1,8 @@
 # @author Mateusz Machalica
 
-CPPFLAGS	= -Wall -Wextra -I /usr/local/cuda-5.5/include/ -I /opt/cuda/include/ -std=c++0x -O2
-LDFLAGS		= -L /usr/lib64/nvidia
-LDLIBS		= -lOpenCL -lstdc++
+override CPPFLAGS	+= -Wall -Wextra -I /usr/local/cuda-5.5/include/ -I /opt/cuda/include/ -std=c++0x -O3
+override LDFLAGS	+= -L /usr/lib64/nvidia
+override LDLIBS		+= -lOpenCL -lstdc++
 
 INCLUDES	= $(wildcard *.h)
 SOURCES		= $(wildcard *.cpp)

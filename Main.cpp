@@ -6,6 +6,7 @@
 #include <utility>
 #include <string>
 #include <stdexcept>
+#include <cstdio>
 
 #include "./MicroBench.h"
 #include "./MyCL.h"
@@ -16,11 +17,16 @@
 using namespace brandes;
 
 int main(int argc, const char* argv[]) {
+  MICROBENCH_START(total);
   assert(argc == 3);
 
-  GraphCSR csr = GraphCSR::create(GraphGeneric::read(argv[1]));
+  GraphOCSR csr =
+    GraphOCSR::create(
+      GraphCSR::create(
+        GraphGeneric::read(argv[1])));
 
   // TODO(stupaq)
+  MICROBENCH_END(total);
   return 0;
 
   try {
@@ -40,7 +46,7 @@ int main(int argc, const char* argv[]) {
 
     int count = DATA_SIZE;
     for (int i = 0; i < count; i++)
-      data[i] = rand() / (float) RAND_MAX;
+      data[i] = rand() / static_cast<float>(RAND_MAX);
 
     cl::Buffer input = cl::Buffer(context, CL_MEM_READ_ONLY, count *
         sizeof(int));
@@ -68,9 +74,9 @@ int main(int argc, const char* argv[]) {
 
     printf("correct: %d / %d\n", correct, count);
   } catch(cl::Error error) {
-    std::cout << error.what() << "(" << error.err() << ")" << std::endl;
+    fprintf(stderr, "%s (error code: %d)\n", error.what(), error.err());
   } catch(std::runtime_error error) {
-    std::cout << error.what() << std::endl;
+    fprintf(stderr, "%s\n", error.what());
   }
 
   return 0;
