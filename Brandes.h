@@ -144,11 +144,29 @@ namespace brandes {
           *itptr++ = itadj - itadj0;
           auto next = Gitadj0 + G.ptr_[curr],
                last = Gitadj0 + G.ptr_[curr + 1];
-          itadj = std::copy(next, last, itadj);
+          while (next != last) {
+            *itadj++ = bfsno[*next++];
+          }
         }
-        *itptr++ = itadj - itadj0;
-        assert(itptr == optr.end());
+        *itptr = itadj - itadj0;
+        assert(static_cast<size_t>(*itptr) == G.adj_.size());
+        assert(itptr + 1 == optr.end());
       }
+#ifndef NDEBUG
+      for (VertexId origv = 0; origv < n; origv++) {
+        assert(queue[bfsno[origv]] == origv);
+      }
+      for (VertexId origv = 0; origv < n; origv++) {
+        VertexId newv = bfsno[origv];
+        assert(optr[newv + 1] - optr[newv] == G.ptr_[origv + 1] - G.ptr_[origv]);
+        auto next = G.adj_.begin() + G.ptr_[origv],
+             last = G.adj_.begin() + G.ptr_[origv + 1];
+        auto itadj = oadj.begin() + optr[newv];
+        while (next != last) {
+          assert(queue[*itadj++] == *next++);
+        }
+      }
+#endif
       MICROBENCH_END(cc_ordering);
       return GraphOCSR { std::move(bfsno), std::move(optr), std::move(oadj),
         std::move(ccs) };
