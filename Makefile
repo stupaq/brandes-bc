@@ -4,7 +4,10 @@ CPPFLAGS	= -Wall -Wextra -I /usr/local/cuda-5.5/include/ -I /opt/cuda/include/ -
 LDFLAGS		= -L /usr/lib64/nvidia
 LDLIBS		= -lOpenCL -lstdc++
 
-brandes: Main.cpp
+INCLUDES	= $(wildcard *.h)
+SOURCES		= $(wildcard *.cpp)
+
+brandes: $(SOURCES) $(INCLUDES) Makefile
 	g++ $(CPPFLAGS) $(LDFLAGS) $< $(LDLIBS) -o $@
 
 clean:

@@ -16,11 +16,15 @@ typedef std::chrono::steady_clock MicroBenchClock;
 #endif
 typedef std::chrono::microseconds MicroBenchUnits;
 
+#ifdef MICROBENCH
 #define MICROBENCH_START(name)\
   MicroBenchClock::time_point name ## _start = MicroBenchClock::now();
-
 #define MICROBENCH_END(name)\
   MicroBenchClock::time_point name ## _end = MicroBenchClock::now();\
   std::cerr << #name << " : " << std::chrono::duration_cast<MicroBenchUnits>(name ## _end - name ## _start).count() << "\n";
+#else
+#define MICROBENCH_START(name)
+#define MICROBENCH_END(name)
+#endif
 
 #endif  // MICROBENCH_H_
