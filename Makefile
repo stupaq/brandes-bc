@@ -1,15 +1,21 @@
 # @author Mateusz Machalica
 
-override CPPFLAGS	+= -Wall -Wextra -I /usr/local/cuda-5.5/include/ -I /opt/cuda/include/ -std=c++0x -O3
-override LDFLAGS	+= -L /usr/lib64/nvidia
-override LDLIBS		+= -lOpenCL -lstdc++
+CXX			?= g++ -fmax-errors=5
+CXXINCLUDE	+= -I /usr/local/cuda-5.5/include/ -I /opt/cuda/include/
+CXXFLAGS	+= $(CXXINCLUDE) -Wall -Wextra -Wpedantic -std=c++0x -O3 -march=native
+LD			?= $(CXX)
+LDFLAGS		+= -L /usr/lib64/nvidia
+LDLIBS		+= -lOpenCL -lstdc++ -lboost_filesystem -lboost_iostreams
 
-INCLUDES	= $(wildcard *.h)
-SOURCES		= $(wildcard *.cpp)
+HEADERS		:= $(wildcard *.h)
 
-brandes: $(SOURCES) $(INCLUDES) Makefile
-	g++ $(CPPFLAGS) $(LDFLAGS) $< $(LDLIBS) -o $@
+brandes: Main
+	ln -sf Main brandes
+
+Main: Main.o
+Main.o: $(HEADERS) Makefile
 
 clean:
-	-rm -rf brandes
+	-rm -rf *.o
+	-rm -rf brandes Main
 

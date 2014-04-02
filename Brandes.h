@@ -10,6 +10,10 @@
 #include <vector>
 #include <utility>
 
+#include <boost/fusion/adapted.hpp>
+#include <boost/spirit/include/qi.hpp>
+#include <boost/iostreams/device/mapped_file.hpp>
+
 #include "./MicroBench.h"
 #include "./MyCL.h"
 
@@ -28,26 +32,32 @@ namespace brandes {
     std::vector<Edge> E_;
 
     static inline GraphGeneric read(const char* file_path) {
+      using boost::iostreams::mapped_file;
+      using boost::spirit::qi::phrase_parse;
+      using boost::spirit::qi::int_;
+      using boost::spirit::qi::eol;
+      using boost::spirit::ascii::blank;
       MICROBENCH_START(reading_graph);
-      FILE* f = fopen(file_path, "r");
-      assert(f);
+      mapped_file mf(file_path, mapped_file::readonly);
       std::vector<Edge> E;
       E.reserve(kEdgesInit);
-      VertexId u, v, n = 0;
-      // TODO(stupaq) getting rid of this fscanf can reduce reading time 4x
-      while (fscanf(f, "%d %d", &u, &v) > 0) {
-        assert(u < v);
-        E.push_back(Edge {u, v});
-        n = (n <= v) ? v + 1 : n;
+      {
+        auto dat0 = mf.const_data(), dat1 = dat0 + mf.size();
+        bool r = phrase_parse(dat0, dat1, (int_ >> int_) % eol > eol, blank, E);
+        assert(r);
+        assert(dat0 == dat1);
       }
-      assert(feof(f));
+      VertexId n = 0;
+      for (auto& e : E) {
+        assert(e.v1_ < e.v2_);
+        n = (n <= e.v2_) ? e.v2_ + 1 : n;
+      }
       assert(!E.empty());
 #ifndef NDEBUG
       for (const Edge& e : E) {
         assert(n > e.v1_ && n > e.v2_);
       }
 #endif
-      fclose(f);
       MICROBENCH_END(reading_graph);
       return GraphGeneric { n, std::move(E) };
     }
@@ -174,5 +184,9 @@ namespace brandes {
   };
 
 }  // namespace brandes
+
+BOOST_FUSION_ADAPT_STRUCT(brandes::Edge,
+    (brandes::VertexId, v1_)
+    (brandes::VertexId, v2_))
 
 #endif  // BRANDES_H_

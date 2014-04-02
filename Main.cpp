@@ -1,6 +1,10 @@
 /** @author Mateusz Machalica */
 
+#ifdef OPTIMIZE
+#define NDEBUG
+#else
 #define MICROBENCH
+#endif
 
 #include <cassert>
 #include <utility>
