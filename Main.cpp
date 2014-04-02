@@ -29,10 +29,6 @@ int main(int argc, const char* argv[]) {
       GraphCSR::create(
         GraphGeneric::read(argv[1])));
 
-  // TODO(stupaq)
-  MICROBENCH_END(total);
-  return 0;
-
   try {
     MICROBENCH_START(setup_opencl_device);
     cl::Context context = initialize_nvidia();
@@ -40,11 +36,11 @@ int main(int argc, const char* argv[]) {
     cl::CommandQueue queue = cl::CommandQueue(context, devices[0]);
     cl::Program program = program_from_file(context, devices,
         "BrandesKernels.cl");
-
-    cl::Kernel kernel(program, "square");
     MICROBENCH_END(setup_opencl_device);
 
     // TODO(stupaq) short test
+    cl::Kernel kernel(program, "square");
+
     float* data = new float[DATA_SIZE];
     float* results = new float[DATA_SIZE];
 
@@ -79,9 +75,8 @@ int main(int argc, const char* argv[]) {
     printf("correct: %d / %d\n", correct, count);
   } catch(cl::Error error) {
     fprintf(stderr, "%s (error code: %d)\n", error.what(), error.err());
-  } catch(std::runtime_error error) {
-    fprintf(stderr, "%s\n", error.what());
   }
 
+  MICROBENCH_END(total);
   return 0;
 }
