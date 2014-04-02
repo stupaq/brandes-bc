@@ -24,10 +24,7 @@ int main(int argc, const char* argv[]) {
   MICROBENCH_START(total);
   assert(argc == 3);
 
-  GraphOCSR csr =
-    GraphOCSR::create(
-      GraphCSR::create(
-        GraphGeneric::read(argv[1])));
+  auto csr = ocsr_create(csr_create(generic_read(argv[1])));
 
   try {
     MICROBENCH_START(setup_opencl_device);
