@@ -24,7 +24,7 @@ int main(int argc, const char* argv[]) {
   MICROBENCH_START(total);
   assert(argc == 3);
 
-  auto csr = ocsr_create(csr_create(generic_read(argv[1])));
+  generic_read<CSRCreate<OCSRCreate<VCSRCreate<void>>>, int>(argv[1]);
 
   try {
     MICROBENCH_START(setup_opencl_device);
