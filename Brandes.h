@@ -67,7 +67,7 @@ namespace brandes {
   template<typename Cont> struct csr_create {
     template<typename Return>
       inline Return cont(const VertexId n, EdgeList& E) const {
-        MICROBENCH_START(csr_transformation);
+        MICROBENCH_START(adjacency);
         VertexList ptr(n + 1), adj(2 * E.size());
         for (auto e : E) {
           ptr[e.v1_]++;
@@ -91,7 +91,7 @@ namespace brandes {
           assert(alloc[i] == ptr[i + 1] - ptr[i]);
         }
 #endif
-        MICROBENCH_END(csr_transformation);
+        MICROBENCH_END(adjacency);
         CONT_BIND(ptr, adj);
       }
   };

@@ -15,14 +15,14 @@ typedef std::chrono::monotonic_clock MicroBenchClock;
 #else
 typedef std::chrono::steady_clock MicroBenchClock;
 #endif
-typedef std::chrono::microseconds MicroBenchUnits;
+typedef std::chrono::duration<double, std::milli> MicroBenchUnits;
 
 #ifdef MICROBENCH
 #define MICROBENCH_START(name)\
   MicroBenchClock::time_point name ## _start = MicroBenchClock::now();
 #define MICROBENCH_END(name)\
   MicroBenchClock::time_point name ## _end = MicroBenchClock::now();\
-  fprintf(stderr, #name ":\t%ld\n", std::chrono::duration_cast<MicroBenchUnits>\
+  fprintf(stderr, #name ":\t%.3f\n", std::chrono::duration_cast<MicroBenchUnits>\
       (name ## _end - name ## _start).count());
 #else
 #define MICROBENCH_START(name)
