@@ -24,9 +24,14 @@ typedef std::chrono::duration<double, std::milli> MicroBenchUnits;
   MicroBenchClock::time_point name ## _end = MicroBenchClock::now();\
   fprintf(stderr, #name ":\t%.3f\n", std::chrono::duration_cast<MicroBenchUnits>\
       (name ## _end - name ## _start).count());
+#define MICROBENCH_WARN(cond, warn)\
+  if (cond) {\
+    fprintf(stderr, "WARNING:\t%s\n", warn);\
+  }
 #else
 #define MICROBENCH_START(name)
 #define MICROBENCH_END(name)
+#define MICROBENCH_WARN(cond, warn)
 #endif
 
 #endif  // MICROBENCH_H_

@@ -216,10 +216,9 @@ namespace brandes {
             itccs++;
           }
         }
+        MICROBENCH_WARN(kN1Estimate < vptr.capacity(), "vptr estimate too small");
+        MICROBENCH_WARN(kN1Estimate < vmap.capacity(), "vmap estimate too small");
 #ifndef NDEBUG
-        if (kN1Estimate < vptr.capacity() || kN1Estimate < vmap.capacity()) {
-          fprintf(stderr, "vptr or vmap estimate too small");
-        }
         assert(static_cast<size_t>(vptr.back()) == adj.size());
         assert(std::is_sorted(vptr.begin(), vptr.end()));
         assert(std::is_sorted(vmap.begin(), vmap.end()));
@@ -282,10 +281,9 @@ namespace brandes {
         vmap.push_back(n);
         const VertexId n1 = vptr.size() - 1;
         vccs.push_back(n1);
+        MICROBENCH_WARN(kN1Estimate < vptr.capacity(), "vptr estimate too small");
+        MICROBENCH_WARN(kN1Estimate < vmap.capacity(), "vmap estimate too small");
 #ifndef NDEBUG
-        if (kN1Estimate < vptr.capacity() || kN1Estimate < vmap.capacity()) {
-          fprintf(stderr, "vptr or vmap estimate too small");
-        }
         assert(static_cast<size_t>(vptr.back()) == adj.size());
         assert(std::is_sorted(vmap.begin(), vmap.end()));
         assert(vmap.size() == vptr.size());
