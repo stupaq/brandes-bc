@@ -9,6 +9,12 @@
 
 #include "./MicroBench.h"
 
+struct Accelerator {
+  cl::Context context_;
+  cl::CommandQueue queue_;
+  cl::Program program_;
+};
+
 inline cl::Program program_from_file(const cl::Context& context,
     const VECTOR_CLASS<cl::Device>& devices, const char* file_path) {
   using boost::iostreams::mapped_file;

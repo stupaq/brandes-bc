@@ -13,6 +13,7 @@
 
 #include <vector>
 #include <utility>
+#include <future>
 
 #include "./MicroBench.h"
 #include "./MyCL.h"
@@ -20,6 +21,8 @@
 #define CONT_BIND(...) return Cont().template cont<Return>(__VA_ARGS__);
 
 namespace brandes {
+
+  typedef std::future<Accelerator> DeviceCtx;
 
   typedef cl_int VertexId;
   typedef std::vector<VertexId> VertexList;
@@ -38,7 +41,7 @@ namespace brandes {
   typedef std::vector<Virtual> VirtualList;
 
   template<typename Cont, typename Return>
-    inline Return generic_read(const char* file_path) {
+    inline Return generic_read(DeviceCtx& ctx, const char* file_path) {
       const size_t kEdgesInit = 1<<20;
       using boost::iostreams::mapped_file;
       using boost::spirit::qi::phrase_parse;
@@ -67,12 +70,12 @@ namespace brandes {
       }
 #endif  // NDEBUG
       MICROBENCH_END(reading_graph);
-      CONT_BIND(n, E);
+      CONT_BIND(ctx, n, E);
     }
 
   template<typename Cont> struct csr_create {
     template<typename Return>
-      inline Return cont(const VertexId n, EdgeList& E) const {
+      inline Return cont(DeviceCtx& ctx, const VertexId n, EdgeList& E) const {
         MICROBENCH_START(adjacency);
         VertexList ptr(n + 1), adj(2 * E.size());
         for (auto e : E) {
@@ -98,7 +101,7 @@ namespace brandes {
         }
 #endif  // NDEBUG
         MICROBENCH_END(adjacency);
-        CONT_BIND(ptr, adj);
+        CONT_BIND(ctx, ptr, adj);
       }
   };
 
@@ -117,7 +120,8 @@ namespace brandes {
 
   template<typename Cont> struct ocsr_create {
     template<typename Return>
-      inline Return cont(VertexList& ptr, VertexList& adj) const {
+      inline Return cont(DeviceCtx& ctx, VertexList& ptr, VertexList& adj)
+      const {
         MICROBENCH_START(cc_ordering);
         const VertexId n = ptr.size() - 1;
         VertexList bfsno(n, -1);
@@ -161,25 +165,27 @@ namespace brandes {
 #endif  // NDEBUG
         Permutation ord = { bfsno };
         MICROBENCH_END(cc_ordering);
-        CONT_BIND(ord, queue, ptr, adj, ccs);
+        CONT_BIND(ctx, ord, queue, ptr, adj, ccs);
       }
   };
 
   template<typename Cont> struct ocsr_pass {
     template<typename Return>
-      inline Return cont(VertexList& ptr, VertexList& adj) const {
+      inline Return cont(DeviceCtx& ctx, VertexList& ptr, VertexList& adj)
+      const {
         MICROBENCH_START(cc_ordering);
         const VertexId n = ptr.size() - 1;
         VertexList ccs = { 0, n };
         MICROBENCH_END(cc_ordering);
-        CONT_BIND(ptr, adj, ccs);
+        CONT_BIND(ctx, ptr, adj, ccs);
       }
   };
 
   template<int kMDeg, typename Cont> struct vcsr_create {
     template<typename Return, typename Reordering>
-      inline Return cont(Reordering& ord, const VertexList& queue, const
-          VertexList& ptr, const VertexList& adj, const VertexList& ccs) const
+      inline Return cont(DeviceCtx& ctx, Reordering& ord, const VertexList&
+          queue, const VertexList& ptr, const VertexList& adj, const
+          VertexList& ccs) const
       {
         MICROBENCH_START(virtualization);
         VirtualList vlst;
@@ -220,12 +226,12 @@ namespace brandes {
         assertions(queue, ptr, adj, ccs, vlst, oadj, vccs);
 #endif  // NDEBUG
         MICROBENCH_END(virtualization);
-        CONT_BIND(ord, vlst, oadj, vccs);
+        CONT_BIND(ctx, ord, vlst, oadj, vccs);
       }
 
     template<typename Return>
-      inline Return cont(const VertexList& ptr, VertexList& adj, const
-          VertexList& ccs) const {
+      inline Return cont(DeviceCtx& ctx, const VertexList& ptr, VertexList& adj,
+          const VertexList& ccs) const {
         MICROBENCH_START(virtualization);
         const VertexId n = ptr.size() - 1;
         VirtualList vlst;
@@ -256,11 +262,10 @@ namespace brandes {
         assertions(id, ptr, adj, ccs, vlst, adj, vccs);
 #endif  // NDEBUG
         MICROBENCH_END(virtualization);
-        CONT_BIND(id, vlst, adj, vccs);
+        CONT_BIND(ctx, id, vlst, adj, vccs);
       }
 
 #ifndef NDEBUG
-    private:
     template<typename Reordering>
       inline void assertions(const Reordering& rord, const VertexList& ptr,
           const VertexList& adj, const VertexList& ccs, const VirtualList&
@@ -273,7 +278,8 @@ namespace brandes {
           VertexId orig = rord[vlst[virt].map_];
           assert(vlst[virt + 1].ptr_ >= vlst[virt].ptr_);
           assert(vlst[virt + 1].ptr_ - vlst[virt].ptr_ <= kMDeg);
-          assert(vlst[virt + 1].ptr_ - vlst[virt].ptr_ <= ptr[orig + 1] - ptr[orig]);
+          assert(vlst[virt + 1].ptr_ - vlst[virt].ptr_
+              <= ptr[orig + 1] - ptr[orig]);
           if (ptr[orig + 1] != ptr[orig]) {
             assert(vlst[virt + 1].ptr_ > vlst[virt].ptr_);
           }
@@ -296,8 +302,9 @@ namespace brandes {
 
   template<typename Cont> struct vcsr_pass {
     template<typename Return, typename Reordering>
-      inline Return cont(Reordering& ord, const VertexList& queue, VertexList&
-          ptr, const VertexList& adj, VertexList& ccs) const {
+      inline Return cont(DeviceCtx& ctx, Reordering& ord, const VertexList&
+          queue, VertexList& ptr, const VertexList& adj, VertexList& ccs) const
+      {
         MICROBENCH_START(virtualization);
         VertexList optr(ptr.size()), oadj(adj.size());
         auto itoadj0 = oadj.begin(),
@@ -328,24 +335,74 @@ namespace brandes {
         }
 #endif  // NDEBUG
         MICROBENCH_END(virtualization);
-        CONT_BIND(ord, optr, oadj, ccs);
+        CONT_BIND(ctx, ord, optr, oadj, ccs);
       }
 
     template<typename Return>
-      inline Return cont(VertexList& ptr, VertexList& adj, VertexList& ccs)
-      const {
+      inline Return cont(DeviceCtx& ctx, VertexList& ptr, VertexList& adj,
+          VertexList& ccs) const {
         MICROBENCH_START(virtualization);
         Identity id;
         MICROBENCH_END(virtualization);
-        CONT_BIND(id, ptr, adj, ccs);
+        CONT_BIND(ctx, id, ptr, adj, ccs);
       }
   };
 
   // TODO(stupaq) this is only a placeholder
   struct Terminal {
-    template<typename Return, typename Reordering, typename NodesList>
-      inline Return cont(Reordering&, NodesList&, VertexList&, VertexList&)
-      const {
+    template<typename Return, typename Reordering>
+      inline Return cont(DeviceCtx& ctx, Reordering&, VertexList&, VertexList&,
+          VertexList&) const {
+        try {
+          Accelerator acc = ctx.get();
+
+          // TODO(stupaq) short test
+          cl::Kernel kernel(acc.program_, "square");
+
+          const int count = 1024 * 1024;
+          float* data = new float[count];
+          float* results = new float[count];
+
+          for (int i = 0; i < count; i++)
+            data[i] = rand() / static_cast<float>(RAND_MAX);
+
+          cl::Buffer input = cl::Buffer(acc.context_, CL_MEM_READ_ONLY, count *
+              sizeof(int));
+          cl::Buffer output = cl::Buffer(acc.context_, CL_MEM_WRITE_ONLY, count
+              * sizeof(int));
+
+          acc.queue_.enqueueWriteBuffer(input, CL_TRUE, 0, count * sizeof(int),
+              data);
+
+          kernel.setArg(0, input);
+          kernel.setArg(1, output);
+          kernel.setArg(2, count);
+
+          cl::NDRange global(count);
+          cl::NDRange local(1);
+          acc.queue_.enqueueNDRangeKernel(kernel, cl::NullRange, global,
+              local);
+
+          acc.queue_.enqueueReadBuffer(output, CL_TRUE, 0, count * sizeof(int),
+              results);
+          acc.queue_.finish();
+
+          int correct = 0;
+          for (int i = 0; i < count; i++) {
+            if (results[i] == data[i] * data[i])
+              correct++;
+          }
+          printf("correct: %d / %d\n", correct, count);
+        } catch(cl::Error error) {
+          fprintf(stderr, "%s (error code: %d)\n", error.what(), error.err());
+        }
+
+        return 0;
+      }
+
+    template<typename Return, typename Reordering>
+      inline Return cont(DeviceCtx&, Reordering&, VirtualList&, VertexList&,
+          VertexList&) const {
         return 0;
       }
   };
