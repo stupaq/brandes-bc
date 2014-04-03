@@ -214,7 +214,7 @@ namespace brandes {
         }
         vlst.push_back(Virtual(itoadj - itoadj0, aggr));
         auto itccs = ccs.begin();
-        for (VertexId virt = 0; virt < vlst.size(); virt++) {
+        for (VertexId virt = 0,  end = vlst.size(); virt < end; virt++) {
           if (vlst[virt].map_ == *itccs) {
             vccs.push_back(virt);
             itccs++;
@@ -354,7 +354,9 @@ namespace brandes {
       inline Return cont(DeviceCtx& ctx, Reordering&, VertexList&, VertexList&,
           VertexList&) const {
         try {
+          MICROBENCH_START(device_ready);
           Accelerator acc = ctx.get();
+          MICROBENCH_END(device_ready);
 
           // TODO(stupaq) short test
           cl::Kernel kernel(acc.program_, "square");

@@ -17,6 +17,7 @@
 #include <utility>
 #include <string>
 #include <stdexcept>
+#include <future>
 
 #include "./MicroBench.h"
 #include "./MyCL.h"
@@ -42,16 +43,16 @@ int main(int argc, const char* argv[]) {
 
   DeviceCtx ctx;
   fprintf(stderr, "--------\n");
-  ctx = std::async(std::launch::async | std::launch::deferred, init_device);
+  ctx = std::async(std::launch::async, init_device);
   generic_read<csr_create<ocsr_pass<vcsr_pass<Terminal>>>, int>(ctx, argv[1]);
   fprintf(stderr, "--------\n");
-  ctx = std::async(std::launch::async | std::launch::deferred, init_device);
+  ctx = std::async(std::launch::async, init_device);
   generic_read<csr_create<ocsr_pass<vcsr_create<4, Terminal>>>, int>(ctx, argv[1]);
   fprintf(stderr, "--------\n");
-  ctx = std::async(std::launch::async | std::launch::deferred, init_device);
+  ctx = std::async(std::launch::async, init_device);
   generic_read<csr_create<ocsr_create<vcsr_pass<Terminal>>>, int>(ctx, argv[1]);
   fprintf(stderr, "--------\n");
-  ctx = std::async(std::launch::async | std::launch::deferred, init_device);
+  ctx = std::async(std::launch::async, init_device);
   generic_read<csr_create<ocsr_create<vcsr_create<4, Terminal>>>, int>(ctx, argv[1]);
   fprintf(stderr, "--------\n");
 
