@@ -1,5 +1,6 @@
 /** @author Mateusz Machalica */
 
+// TODO(stupaq) make sure to benchmark with optimized version
 #ifdef OPTIMIZE
 #define NDEBUG
 #else
@@ -24,13 +25,13 @@ int main(int argc, const char* argv[]) {
   MICROBENCH_START(total);
   assert(argc == 3);
 
-  generic_read<CSRCreate<OCSRPass<VCSRPass<void>>>, int>(argv[1]);
+  generic_read<csr_create<ocsr_pass<vcsr_pass<Terminal>>>, int>(argv[1]);
   fprintf(stderr, "--------\n");
-  generic_read<CSRCreate<OCSRPass<VCSRCreate<void>>>, int>(argv[1]);
+  generic_read<csr_create<ocsr_pass<vcsr_create<4, Terminal>>>, int>(argv[1]);
   fprintf(stderr, "--------\n");
-  generic_read<CSRCreate<OCSRCreate<VCSRPass<void>>>, int>(argv[1]);
+  generic_read<csr_create<ocsr_create<vcsr_pass<Terminal>>>, int>(argv[1]);
   fprintf(stderr, "--------\n");
-  generic_read<CSRCreate<OCSRCreate<VCSRCreate<void>>>, int>(argv[1]);
+  generic_read<csr_create<ocsr_create<vcsr_create<4, Terminal>>>, int>(argv[1]);
   fprintf(stderr, "--------\n");
 
   try {

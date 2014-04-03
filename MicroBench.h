@@ -22,7 +22,8 @@ typedef std::chrono::microseconds MicroBenchUnits;
   MicroBenchClock::time_point name ## _start = MicroBenchClock::now();
 #define MICROBENCH_END(name)\
   MicroBenchClock::time_point name ## _end = MicroBenchClock::now();\
-  fprintf(stderr, #name ":\t%ld\n", std::chrono::duration_cast<MicroBenchUnits>(name ## _end - name ## _start).count());
+  fprintf(stderr, #name ":\t%ld\n", std::chrono::duration_cast<MicroBenchUnits>\
+      (name ## _end - name ## _start).count());
 #else
 #define MICROBENCH_START(name)
 #define MICROBENCH_END(name)
