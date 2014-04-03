@@ -46,7 +46,7 @@ namespace brandes {
       {
         auto dat0 = mf.const_data(), dat1 = dat0 + mf.size();
         bool r = phrase_parse(dat0, dat1, (int_ >> int_) % eol > eol, blank, E);
-        assert(r);
+        assert(r); SUPPRESS_UNUSED(r);
         assert(dat0 == dat1);
       }
       VertexId n = 0;
@@ -216,8 +216,10 @@ namespace brandes {
             itccs++;
           }
         }
-        MICROBENCH_WARN(kN1Estimate < vptr.capacity(), "vptr estimate too small");
-        MICROBENCH_WARN(kN1Estimate < vmap.capacity(), "vmap estimate too small");
+        MICROBENCH_WARN(kN1Estimate < vptr.capacity(),
+            "vptr estimate too small");
+        MICROBENCH_WARN(kN1Estimate < vmap.capacity(),
+            "vmap estimate too small");
 #ifndef NDEBUG
         assert(static_cast<size_t>(vptr.back()) == adj.size());
         assert(std::is_sorted(vptr.begin(), vptr.end()));
@@ -281,8 +283,10 @@ namespace brandes {
         vmap.push_back(n);
         const VertexId n1 = vptr.size() - 1;
         vccs.push_back(n1);
-        MICROBENCH_WARN(kN1Estimate < vptr.capacity(), "vptr estimate too small");
-        MICROBENCH_WARN(kN1Estimate < vmap.capacity(), "vmap estimate too small");
+        MICROBENCH_WARN(kN1Estimate < vptr.capacity(),
+            "vptr estimate too small");
+        MICROBENCH_WARN(kN1Estimate < vmap.capacity(),
+            "vmap estimate too small");
 #ifndef NDEBUG
         assert(static_cast<size_t>(vptr.back()) == adj.size());
         assert(std::is_sorted(vmap.begin(), vmap.end()));
@@ -315,7 +319,6 @@ namespace brandes {
       inline Return cont(Reordering& ord, const VertexList& queue, VertexList&
           ptr, const VertexList& adj, VertexList& ccs) const {
         MICROBENCH_START(virtualization);
-        const VertexId n = ptr.size() - 1;
         VertexList optr(ptr.size()), oadj(adj.size());
         auto itoadj0 = oadj.begin(),
              itoadj = itoadj0,
@@ -330,6 +333,7 @@ namespace brandes {
         }
         *itoptr = itoadj - itoadj0;
 #ifndef NDEBUG
+        const VertexId n = ptr.size() - 1;
         assert(static_cast<size_t>(*itoptr) == adj.size());
         assert(itoptr + 1 == optr.end());
         for (VertexId orig = 0; orig < n; orig++) {

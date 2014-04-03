@@ -23,7 +23,7 @@ using namespace brandes;
 
 int main(int argc, const char* argv[]) {
   MICROBENCH_START(total);
-  assert(argc == 3);
+  assert(argc == 3); SUPPRESS_UNUSED(argc);
 
   generic_read<csr_create<ocsr_pass<vcsr_pass<Terminal>>>, int>(argv[1]);
   fprintf(stderr, "--------\n");

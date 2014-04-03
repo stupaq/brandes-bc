@@ -34,4 +34,6 @@ typedef std::chrono::duration<double, std::milli> MicroBenchUnits;
 #define MICROBENCH_WARN(cond, warn)
 #endif
 
+#define SUPPRESS_UNUSED(x) (static_cast<void>(x))
+
 #endif  // MICROBENCH_H_
