@@ -182,8 +182,9 @@ namespace brandes {
         vccs.reserve(ccs.size());
         // TODO(stupaq) this is pretty fair estimate, leave unless profiling
         // shows multiple reallocations happening
-        vptr.reserve(ptr.size() + adj.size() / kMDeg);
-        vmap.reserve(ptr.size() + adj.size() / kMDeg);
+        const size_t kN1Estimate = ptr.size() + adj.size() / kMDeg;
+        vptr.reserve(kN1Estimate);
+        vmap.reserve(kN1Estimate);
         VertexList oadj(adj.size());
         auto itoadj0 = oadj.begin(),
              itoadj = itoadj0;
@@ -191,8 +192,6 @@ namespace brandes {
         for (auto orig : queue) {
           auto next = adj.begin() + ptr[orig],
                last = adj.begin() + ptr[orig + 1];
-          // TODO(stupaq) not sure if splitting these loops wouldn't make
-          // things faster
           if (next == last) {
             vptr.push_back(itoadj - itoadj0);
             vmap.push_back(aggr);
@@ -218,6 +217,9 @@ namespace brandes {
           }
         }
 #ifndef NDEBUG
+        if (kN1Estimate < vptr.capacity() || kN1Estimate < vmap.capacity()) {
+          fprintf(stderr, "vptr or vmap estimate too small");
+        }
         assert(static_cast<size_t>(vptr.back()) == adj.size());
         assert(std::is_sorted(vptr.begin(), vptr.end()));
         assert(std::is_sorted(vmap.begin(), vmap.end()));
@@ -258,8 +260,9 @@ namespace brandes {
         vccs.reserve(ccs.size());
         // TODO(stupaq) this is pretty fair estimate, leave unless profiling
         // shows multiple reallocations happening
-        vptr.reserve(ptr.size() + adj.size() / kMDeg);
-        vmap.reserve(ptr.size() + adj.size() / kMDeg);
+        const size_t kN1Estimate = ptr.size() + adj.size() / kMDeg;
+        vptr.reserve(kN1Estimate);
+        vmap.reserve(kN1Estimate);
         auto itccs = ccs.begin();
         for (VertexId orig = 0; orig < n; orig++) {
           VertexId virt = vptr.size(),
@@ -280,6 +283,9 @@ namespace brandes {
         const VertexId n1 = vptr.size() - 1;
         vccs.push_back(n1);
 #ifndef NDEBUG
+        if (kN1Estimate < vptr.capacity() || kN1Estimate < vmap.capacity()) {
+          fprintf(stderr, "vptr or vmap estimate too small");
+        }
         assert(static_cast<size_t>(vptr.back()) == adj.size());
         assert(std::is_sorted(vmap.begin(), vmap.end()));
         assert(vmap.size() == vptr.size());
