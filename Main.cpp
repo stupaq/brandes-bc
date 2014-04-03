@@ -24,7 +24,14 @@ int main(int argc, const char* argv[]) {
   MICROBENCH_START(total);
   assert(argc == 3);
 
+  generic_read<CSRCreate<OCSRPass<VCSRPass<void>>>, int>(argv[1]);
+  fprintf(stderr, "--------\n");
+  generic_read<CSRCreate<OCSRPass<VCSRCreate<void>>>, int>(argv[1]);
+  fprintf(stderr, "--------\n");
+  generic_read<CSRCreate<OCSRCreate<VCSRPass<void>>>, int>(argv[1]);
+  fprintf(stderr, "--------\n");
   generic_read<CSRCreate<OCSRCreate<VCSRCreate<void>>>, int>(argv[1]);
+  fprintf(stderr, "--------\n");
 
   try {
     MICROBENCH_START(setup_opencl_device);
