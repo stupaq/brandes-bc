@@ -21,15 +21,21 @@
 
 namespace brandes {
 
-  typedef int VertexId;
+  typedef cl_int VertexId;
   typedef std::vector<VertexId> VertexList;
 
   struct Edge {
     VertexId v1_;
     VertexId v2_;
   };
-
   typedef std::vector<Edge> EdgeList;
+
+  struct Virtual {
+    VertexId ptr_;
+    VertexId map_;
+    Virtual(VertexId ptr, VertexId map) : ptr_(ptr), map_(map) {}
+  } __attribute__((packed));
+  typedef std::vector<Virtual> VirtualList;
 
   template<typename Cont, typename Return>
     inline Return generic_read(const char* file_path) {
@@ -59,7 +65,7 @@ namespace brandes {
       for (const Edge& e : E) {
         assert(n > e.v1_ && n > e.v2_);
       }
-#endif
+#endif  // NDEBUG
       MICROBENCH_END(reading_graph);
       CONT_BIND(n, E);
     }
@@ -90,7 +96,7 @@ namespace brandes {
         for (VertexId i = 0; i < n; i++) {
           assert(alloc[i] == ptr[i + 1] - ptr[i]);
         }
-#endif
+#endif  // NDEBUG
         MICROBENCH_END(adjacency);
         CONT_BIND(ptr, adj);
       }
@@ -152,7 +158,7 @@ namespace brandes {
         }
         assert(std::is_sorted(ccs.begin(), ccs.end()));
         assert(ccs.back() == n);
-#endif
+#endif  // NDEBUG
         Permutation ord = { bfsno };
         MICROBENCH_END(cc_ordering);
         CONT_BIND(ord, queue, ptr, adj, ccs);
@@ -164,11 +170,9 @@ namespace brandes {
       inline Return cont(VertexList& ptr, VertexList& adj) const {
         MICROBENCH_START(cc_ordering);
         const VertexId n = ptr.size() - 1;
-        Identity id;
-        VertexList queue;
         VertexList ccs = { 0, n };
         MICROBENCH_END(cc_ordering);
-        CONT_BIND(id, queue, ptr, adj, ccs);
+        CONT_BIND(ptr, adj, ccs);
       }
   };
 
@@ -178,13 +182,11 @@ namespace brandes {
           VertexList& ptr, const VertexList& adj, const VertexList& ccs) const
       {
         MICROBENCH_START(virtualization);
-        VertexList vptr, vmap, vccs;
+        VirtualList vlst;
+        VertexList vccs;
         vccs.reserve(ccs.size());
-        // TODO(stupaq) this is pretty fair estimate, leave unless profiling
-        // shows multiple reallocations happening
         const size_t kN1Estimate = ptr.size() + adj.size() / kMDeg;
-        vptr.reserve(kN1Estimate);
-        vmap.reserve(kN1Estimate);
+        vlst.reserve(kN1Estimate);
         VertexList oadj(adj.size());
         auto itoadj0 = oadj.begin(),
              itoadj = itoadj0;
@@ -193,80 +195,47 @@ namespace brandes {
           auto next = adj.begin() + ptr[orig],
                last = adj.begin() + ptr[orig + 1];
           if (next == last) {
-            vptr.push_back(itoadj - itoadj0);
-            vmap.push_back(aggr);
+            vlst.push_back(Virtual(itoadj - itoadj0, aggr));
           } else {
             for (int i = 0; next != last; i++, itoadj++, next++) {
               if (i % kMDeg == 0) {
-                vptr.push_back(itoadj - itoadj0);
-                vmap.push_back(aggr);
+                vlst.push_back(Virtual(itoadj - itoadj0, aggr));
               }
               *itoadj = ord[*next];
             }
           }
           aggr++;
         }
-        vptr.push_back(itoadj - itoadj0);
-        vmap.push_back(aggr);
-        const VertexId n1 = vptr.size() - 1;
+        vlst.push_back(Virtual(itoadj - itoadj0, aggr));
         auto itccs = ccs.begin();
-        for (VertexId virt = 0; virt <= n1; virt++) {
-          if (vmap[virt] == *itccs) {
+        for (VertexId virt = 0; virt < vlst.size(); virt++) {
+          if (vlst[virt].map_ == *itccs) {
             vccs.push_back(virt);
             itccs++;
           }
         }
-        MICROBENCH_WARN(kN1Estimate < vptr.capacity(),
-            "vptr estimate too small");
-        MICROBENCH_WARN(kN1Estimate < vmap.capacity(),
-            "vmap estimate too small");
+        MICROBENCH_WARN(kN1Estimate < vlst.capacity(),
+            "vlst estimate too small");
 #ifndef NDEBUG
-        assert(static_cast<size_t>(vptr.back()) == adj.size());
-        assert(std::is_sorted(vptr.begin(), vptr.end()));
-        assert(std::is_sorted(vmap.begin(), vmap.end()));
-        assert(vmap.size() == vptr.size());
-        for (VertexId virt = 0; virt < n1; virt++) {
-          assert(vmap[virt + 1] >= vmap[virt]);
-          assert(vmap[virt + 1] <= vmap[virt] + 1);
-          VertexId orig = queue[vmap[virt]];
-          assert(vptr[virt + 1] - vptr[virt] <= kMDeg);
-          assert(vptr[virt + 1] - vptr[virt] <= ptr[orig + 1] - ptr[orig]);
-          if (ptr[orig + 1] != ptr[orig]) {
-            assert(vptr[virt + 1] > vptr[virt]);
-          }
-          if (virt == 0 || vmap[virt - 1] != vmap[virt]) {
-            auto next = adj.begin() + ptr[orig],
-                 last = adj.begin() + ptr[orig + 1];
-            auto itoadj = oadj.begin() + vptr[virt];
-            while (next != last) {
-              assert(queue[*itoadj++] == *next++);
-            }
-          }
-        }
-        assert(vccs.front() == 0);
-        assert(vccs.back() == n1);
-        assert(std::is_sorted(vccs.begin(), vccs.end()));
-        assert(vccs.size() == ccs.size());
-#endif
+        assertions(queue, ptr, adj, ccs, vlst, oadj, vccs);
+#endif  // NDEBUG
         MICROBENCH_END(virtualization);
-        CONT_BIND(ord, vptr, oadj, vccs);
+        CONT_BIND(ord, vlst, oadj, vccs);
       }
 
     template<typename Return>
-      inline Return cont(Identity& ord, const VertexList&, const VertexList&
-          ptr, VertexList& adj, const VertexList& ccs) const {
+      inline Return cont(const VertexList& ptr, VertexList& adj, const
+          VertexList& ccs) const {
         MICROBENCH_START(virtualization);
         const VertexId n = ptr.size() - 1;
-        VertexList vptr, vmap, vccs;
+        VirtualList vlst;
+        VertexList vccs;
         vccs.reserve(ccs.size());
-        // TODO(stupaq) this is pretty fair estimate, leave unless profiling
-        // shows multiple reallocations happening
         const size_t kN1Estimate = ptr.size() + adj.size() / kMDeg;
-        vptr.reserve(kN1Estimate);
-        vmap.reserve(kN1Estimate);
+        vlst.reserve(kN1Estimate);
         auto itccs = ccs.begin();
         for (VertexId orig = 0; orig < n; orig++) {
-          VertexId virt = vptr.size(),
+          VertexId virt = vlst.size(),
                    first = ptr[orig],
                    last = ptr[orig + 1];
           if (orig == *itccs) {
@@ -274,44 +243,55 @@ namespace brandes {
             itccs++;
           }
           do {
-            vptr.push_back(first);
-            vmap.push_back(orig);
+            vlst.push_back(Virtual(first, orig));
             first += kMDeg;
           } while (first < last);
         }
-        vptr.push_back(ptr[n]);
-        vmap.push_back(n);
-        const VertexId n1 = vptr.size() - 1;
-        vccs.push_back(n1);
-        MICROBENCH_WARN(kN1Estimate < vptr.capacity(),
-            "vptr estimate too small");
-        MICROBENCH_WARN(kN1Estimate < vmap.capacity(),
-            "vmap estimate too small");
+        vccs.push_back(vlst.size());
+        vlst.push_back(Virtual(ptr[n], n));
+        MICROBENCH_WARN(kN1Estimate < vlst.capacity(),
+            "vlst estimate too small");
+        Identity id;
 #ifndef NDEBUG
-        assert(static_cast<size_t>(vptr.back()) == adj.size());
-        assert(std::is_sorted(vmap.begin(), vmap.end()));
-        assert(vmap.size() == vptr.size());
+        assertions(id, ptr, adj, ccs, vlst, adj, vccs);
+#endif  // NDEBUG
+        MICROBENCH_END(virtualization);
+        CONT_BIND(id, vlst, adj, vccs);
+      }
+
+#ifndef NDEBUG
+    private:
+    template<typename Reordering>
+      inline void assertions(const Reordering& rord, const VertexList& ptr,
+          const VertexList& adj, const VertexList& ccs, const VirtualList&
+          vlst, const VertexList& oadj, const VertexList& vccs) const {
+        const VertexId n1 = vlst.size() - 1;
+        assert(static_cast<size_t>(vlst.back().ptr_) == adj.size());
         for (VertexId virt = 0; virt < n1; virt++) {
-          assert(vmap[virt + 1] >= vmap[virt]);
-          assert(vmap[virt + 1] <= vmap[virt] + 1);
-          VertexId orig = vmap[virt];  // queue == id
-          assert(vptr[virt + 1] - vptr[virt] <= kMDeg);
-          assert(vptr[virt + 1] - vptr[virt] <= ptr[orig + 1] - ptr[orig]);
+          assert(vlst[virt + 1].map_ >= vlst[virt].map_);
+          assert(vlst[virt + 1].map_ <= vlst[virt].map_ + 1);
+          VertexId orig = rord[vlst[virt].map_];
+          assert(vlst[virt + 1].ptr_ >= vlst[virt].ptr_);
+          assert(vlst[virt + 1].ptr_ - vlst[virt].ptr_ <= kMDeg);
+          assert(vlst[virt + 1].ptr_ - vlst[virt].ptr_ <= ptr[orig + 1] - ptr[orig]);
           if (ptr[orig + 1] != ptr[orig]) {
-            assert(vptr[virt + 1] > vptr[virt]);
+            assert(vlst[virt + 1].ptr_ > vlst[virt].ptr_);
           }
-          if (virt == 0 || vmap[virt - 1] != vmap[virt]) {
-            assert(vptr[virt] == ptr[orig]);
+          if (virt == 0 || vlst[virt - 1].map_ != vlst[virt].map_) {
+            auto next = adj.begin() + ptr[orig],
+                 last = adj.begin() + ptr[orig + 1];
+            auto itoadj = oadj.begin() + vlst[virt].ptr_;
+            while (next != last) {
+              assert(rord[*itoadj++] == *next++);
+            }
           }
         }
         assert(vccs.front() == 0);
         assert(vccs.back() == n1);
         assert(std::is_sorted(vccs.begin(), vccs.end()));
         assert(vccs.size() == ccs.size());
-#endif
-        MICROBENCH_END(virtualization);
-        CONT_BIND(ord, vptr, adj, vccs);
       }
+#endif  // NDEBUG
   };
 
   template<typename Cont> struct vcsr_pass {
@@ -346,24 +326,25 @@ namespace brandes {
             assert(queue[*itoadj++] == *next++);
           }
         }
-#endif
+#endif  // NDEBUG
         MICROBENCH_END(virtualization);
         CONT_BIND(ord, optr, oadj, ccs);
       }
 
     template<typename Return>
-      inline Return cont(Identity& ord, const VertexList&, VertexList& ptr,
-          VertexList& adj, VertexList& ccs) const {
+      inline Return cont(VertexList& ptr, VertexList& adj, VertexList& ccs)
+      const {
         MICROBENCH_START(virtualization);
+        Identity id;
         MICROBENCH_END(virtualization);
-        CONT_BIND(ord, ptr, adj, ccs);
+        CONT_BIND(id, ptr, adj, ccs);
       }
   };
 
   // TODO(stupaq) this is only a placeholder
   struct Terminal {
-    template<typename Return, typename Reordering>
-      inline Return cont(Reordering&, VertexList&, VertexList&, VertexList&)
+    template<typename Return, typename Reordering, typename NodesList>
+      inline Return cont(Reordering&, NodesList&, VertexList&, VertexList&)
       const {
         return 0;
       }

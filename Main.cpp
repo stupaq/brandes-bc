@@ -1,9 +1,13 @@
 /** @author Mateusz Machalica */
 
-// TODO(stupaq) make sure to benchmark with optimized version
-#ifdef OPTIMIZE
+#if OPTIMIZE == 1
 #define NDEBUG
+#elif OPTIMIZE == -1
+#warning "Non-optimized build with extra assertions."
+#define MICROBENCH
 #else
+#warning "Partially optimized build for microbenchmarks."
+#define NDEBUG
 #define MICROBENCH
 #endif
 
