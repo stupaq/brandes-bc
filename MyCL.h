@@ -2,9 +2,12 @@
 #ifndef MYCL_H_
 #define MYCL_H_
 
+#ifdef MYCL_DEBUG_BUILDS
+#include <iostream>
+#endif
+
 #define __CL_ENABLE_EXCEPTIONS
 #include <CL/cl.hpp>
-
 #include <boost/iostreams/device/mapped_file.hpp>
 
 #include "./MicroBench.h"
@@ -22,7 +25,16 @@ inline cl::Program program_from_file(const cl::Context& context,
   mapped_file mf(file_path, mapped_file::readonly);
   cl::Program::Sources source(1, std::make_pair(mf.const_data(), mf.size()));
   cl::Program program = cl::Program(context, source);
+#ifdef MYCL_DEBUG_BUILDS
+  try {
+    program.build(devices);
+  } catch (...) {
+    std::cerr << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]) << '\n';
+    throw;
+  }
+#else
   program.build(devices);
+#endif
   MICROBENCH_END(read_and_compile_program);
   return program;
 }

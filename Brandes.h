@@ -413,7 +413,7 @@ namespace brandes {
     template<typename Return, typename Reordering, typename Result>
       inline Return cont(Reordering& ord, Result& reordered) const {
         Return original(reordered.size());
-        for (VertexId orig = 0; orig < original.size(); orig++) {
+        for (VertexId orig = 0, end = original.size(); orig < end; orig++) {
           original[orig] = cast<typename Return::value_type>(reordered[ord[orig]]);
         }
         return original;

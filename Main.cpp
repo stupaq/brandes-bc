@@ -6,11 +6,12 @@
 #define NDEBUG
 #elif OPTIMIZE == -1
 #pragma message "Non-optimized build with extra assertions."
-#define MICROBENCH
+#define MICROBENCH_ENABLE
+#define MYCL_DEBUG_BUILDS
 #else
 #pragma message "Partially optimized build for microbenchmarks."
 #define NDEBUG
-#define MICROBENCH
+#define MICROBENCH_ENABLE
 #endif
 
 #if   ALGORITHM == 0x100

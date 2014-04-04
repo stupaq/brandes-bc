@@ -19,7 +19,7 @@ typedef std::chrono::monotonic_clock MicroBenchClock;
 
 typedef std::chrono::duration<double, std::milli> MicroBenchUnits;
 
-#ifdef MICROBENCH
+#ifdef MICROBENCH_ENABLE
 #define MICROBENCH_START(name)\
   MicroBenchClock::time_point name ## _start = MicroBenchClock::now();
 #define MICROBENCH_END(name)\
