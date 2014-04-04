@@ -4,11 +4,12 @@
 
 #include <iostream>
 
+#include <boost/iostreams/device/mapped_file.hpp>
+
 #ifdef MYCL_ERROR_CHECKING
 #define __CL_ENABLE_EXCEPTIONS
 #endif
 #include <CL/cl.hpp>
-#include <boost/iostreams/device/mapped_file.hpp>
 
 #include "./MicroBench.h"
 

@@ -30,10 +30,14 @@ typedef std::chrono::duration<double, std::milli> MicroBenchUnits;
   if (cond) {\
     fprintf(stderr, "WARNING:\t%s\n", warn);\
   }
+#define MICROBENCH_CHECKPOINT(...)\
+  fprintf(stderr, __VA_ARGS__);\
+  fflush(stderr);
 #else
 #define MICROBENCH_START(name)
 #define MICROBENCH_END(name)
 #define MICROBENCH_WARN(cond, warn)
+#define MICROBENCH_CHECKPOINT(...)
 #endif
 
 #define SUPPRESS_UNUSED(x) (static_cast<void>(x))

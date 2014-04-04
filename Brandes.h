@@ -126,7 +126,7 @@ namespace brandes {
         const VertexId n = ptr.size() - 1;
         VertexList bfsno(n, -1);
         VertexList queue(n);
-        VertexList ccs = { 0 };
+        VertexList ccs;
         auto qfront = queue.begin(), qback = queue.begin();
         VertexId bfsi = 0;
         for (VertexId root = 0; root < n; root++) {
@@ -214,7 +214,7 @@ namespace brandes {
         }
         vlst.push_back(Virtual(itoadj - itoadj0, aggr));
         auto itccs = ccs.begin();
-        for (VertexId virt = 0,  end = vlst.size(); virt < end; virt++) {
+        for (VertexId virt = 0, end = vlst.size(); virt < end; virt++) {
           if (vlst[virt].map_ == *itccs) {
             vccs.push_back(virt);
             itccs++;
@@ -362,18 +362,42 @@ namespace brandes {
         cl::CommandQueue& q = acc.queue_;
         cl::Program& prog = acc.program_;
         // TODO(stupaq) move once you determine that it takes no time
-        cl::Kernel forward(prog, "virtual_forward");
+        cl::Kernel k_init(prog, "vcsr_init");
+        cl::Kernel k_forward(prog, "vcsr_forward");
         MICROBENCH_END(device_wait);
 
-        cl::Buffer current_waveCl(dev, CL_MEM_READ_ONLY, sizeof(int));
-        cl::Buffer proceedCl(dev, CL_MEM_READ_ONLY, sizeof(int));
-        cl::Buffer vlstCl(dev, CL_MEM_READ_ONLY, bytes(vlst));
-        cl::Buffer adjCl(dev, CL_MEM_READ_ONLY, bytes(adj));
+        cl::Buffer vlst_cl(dev, CL_MEM_READ_ONLY, bytes(vlst));
+        q.enqueueWriteBuffer(vlst_cl, true, 0, bytes(vlst), vlst.data());
+        MICROBENCH_CHECKPOINT("%lu\n", bytes(vlst));
+
+        cl::Buffer adj_cl(dev, CL_MEM_READ_ONLY, bytes(adj));
+        q.enqueueWriteBuffer(adj_cl, true, 0, bytes(adj), adj.data());
+        MICROBENCH_CHECKPOINT("%lu\n", bytes(adj));
+
+        bool proceed = false;
+        cl::Buffer proceed_cl(dev, CL_MEM_READ_WRITE, sizeof(bool));
+        q.enqueueWriteBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
+        MICROBENCH_CHECKPOINT("1\n");
+
+        /*
+           const size_t n = vlst.back().map_;
+           const size_t n1 = vlst.size();
+
+           int source = 0;
+        // TODO(stupaq) for each source
+        size_t ds_cl_sz = 2 * sizeof(int) * n;
+        cl::Buffer ds_cl(dev, CL_MEM_READ_WRITE, ds_cl_sz);
+        k_init.setArg(0, source);
+        k_init.setArg(1, ds_cl);
+        q.enqueueNDRangeKernel(k_init, cl::NullRange, cl::NDRange(n1),
+        cl::NDRange(1));
+        MICROBENCH_CHECKPOINT("0\n");
+        */
 
         // TODO(stupaq) short test
         cl::Kernel kernel(acc.program_, "square");
 
-        const int count = 1024 * 1024;
+        const int count = 1024;
         float* data = new float[count];
         float* results = new float[count];
 
