@@ -1,14 +1,26 @@
 /** @author Mateusz Machalica */
 
+#include <boost/preprocessor/stringize.hpp>
+
 #if OPTIMIZE == 1
 #define NDEBUG
 #elif OPTIMIZE == -1
-#warning "Non-optimized build with extra assertions."
+#pragma message "Non-optimized build with extra assertions."
 #define MICROBENCH
 #else
-#warning "Partially optimized build for microbenchmarks."
+#pragma message "Partially optimized build for microbenchmarks."
 #define NDEBUG
 #define MICROBENCH
+#endif
+
+#if   ALGORITHM == 0x100
+#define ALGORITHM_PIPE csr_create<ocsr_pass<vcsr_pass<betweenness<postprocess>>>>
+#elif ALGORITHM == 0x110
+#define ALGORITHM_PIPE csr_create<ocsr_create<vcsr_pass<betweenness<postprocess>>>>
+#elif ALGORITHM == 0x101
+#define ALGORITHM_PIPE csr_create<ocsr_pass<vcsr_create<4, betweenness<postprocess>>>>
+#elif ALGORITHM == 0x111 || ALGORITHM == 0
+#define ALGORITHM_PIPE csr_create<ocsr_create<vcsr_create<4, betweenness<postprocess>>>>
 #endif
 
 #include <cstdio>
@@ -25,7 +37,7 @@
 
 using namespace brandes;
 
-Accelerator init_device() {
+static Accelerator init_device() {
   Accelerator acc;
   MICROBENCH_START(setup_opencl_device);
   acc.context_ = initialize_nvidia();
@@ -37,24 +49,29 @@ Accelerator init_device() {
   return acc;
 }
 
+template<typename Result>
+static inline void generic_write(Result& res, const char* file_path) {
+  MICROBENCH_START(writing_results);
+  FILE* fp = fopen(file_path, "w");
+  assert(fp);
+  for (auto v : res) {
+    fprintf(fp, "%f\n", v);
+  }
+  fclose(fp);
+  MICROBENCH_END(writing_results);
+}
+
 int main(int argc, const char* argv[]) {
   MICROBENCH_START(main_total);
   assert(argc == 3); SUPPRESS_UNUSED(argc);
 
-  DeviceCtx ctx;
-  fprintf(stderr, "--------\n");
-  ctx = std::async(std::launch::async, init_device);
-  generic_read<csr_create<ocsr_pass<vcsr_pass<Terminal>>>, int>(ctx, argv[1]);
-  fprintf(stderr, "--------\n");
-  ctx = std::async(std::launch::async, init_device);
-  generic_read<csr_create<ocsr_pass<vcsr_create<4, Terminal>>>, int>(ctx, argv[1]);
-  fprintf(stderr, "--------\n");
-  ctx = std::async(std::launch::async, init_device);
-  generic_read<csr_create<ocsr_create<vcsr_pass<Terminal>>>, int>(ctx, argv[1]);
-  fprintf(stderr, "--------\n");
-  ctx = std::async(std::launch::async, init_device);
-  generic_read<csr_create<ocsr_create<vcsr_create<4, Terminal>>>, int>(ctx, argv[1]);
-  fprintf(stderr, "--------\n");
+  Context ctx = std::async(std::launch::async, init_device);
+  try {
+    auto res = generic_read<ALGORITHM_PIPE, std::vector<float>>(ctx, argv[1]);
+    generic_write(res, argv[2]);
+  } catch(cl::Error error) {
+    fprintf(stderr, "%s (error code: %d)\n", error.what(), error.err());
+  }
 
   MICROBENCH_END(main_total);
   return 0;
