@@ -351,11 +351,24 @@ namespace brandes {
 
   template<typename Cont> struct betweenness {
     template<typename Return, typename Reordering>
-      inline Return cont(Context& ctx, Reordering& ord, VirtualList&,
-          VertexList&, VertexList&) const {
+      inline Return cont(Context& ctx, Reordering& ord, VirtualList& vlst,
+          VertexList& adj, VertexList&) const {
+        // TODO(stupaq) making use of connected components information
+        // might require aligning component's boundaries with warp size
+        // otherwise we might get bank conflicts
         MICROBENCH_START(device_wait);
         Accelerator acc = ctx.get();
+        cl::Context& dev = acc.context_;
+        cl::CommandQueue& q = acc.queue_;
+        cl::Program& prog = acc.program_;
+        // TODO(stupaq) move once you determine that it takes no time
+        cl::Kernel forward(prog, "virtual_forward");
         MICROBENCH_END(device_wait);
+
+        cl::Buffer current_waveCl(dev, CL_MEM_READ_ONLY, sizeof(int));
+        cl::Buffer proceedCl(dev, CL_MEM_READ_ONLY, sizeof(int));
+        cl::Buffer vlstCl(dev, CL_MEM_READ_ONLY, bytes(vlst));
+        cl::Buffer adjCl(dev, CL_MEM_READ_ONLY, bytes(adj));
 
         // TODO(stupaq) short test
         cl::Kernel kernel(acc.program_, "square");
@@ -367,12 +380,12 @@ namespace brandes {
         for (int i = 0; i < count; i++)
           data[i] = rand() / static_cast<float>(RAND_MAX);
 
-        cl::Buffer input = cl::Buffer(acc.context_, CL_MEM_READ_ONLY, count *
+        cl::Buffer input = cl::Buffer(dev, CL_MEM_READ_ONLY, count *
             sizeof(int));
-        cl::Buffer output = cl::Buffer(acc.context_, CL_MEM_WRITE_ONLY, count
+        cl::Buffer output = cl::Buffer(dev, CL_MEM_WRITE_ONLY, count
             * sizeof(int));
 
-        acc.queue_.enqueueWriteBuffer(input, CL_TRUE, 0, count * sizeof(int),
+        q.enqueueWriteBuffer(input, CL_TRUE, 0, count * sizeof(int),
             data);
 
         kernel.setArg(0, input);
@@ -381,12 +394,12 @@ namespace brandes {
 
         cl::NDRange global(count);
         cl::NDRange local(1);
-        acc.queue_.enqueueNDRangeKernel(kernel, cl::NullRange, global,
+        q.enqueueNDRangeKernel(kernel, cl::NullRange, global,
             local);
 
-        acc.queue_.enqueueReadBuffer(output, CL_TRUE, 0, count * sizeof(int),
+        q.enqueueReadBuffer(output, CL_TRUE, 0, count * sizeof(int),
             results);
-        acc.queue_.finish();
+        q.finish();
 
         int correct = 0;
         for (int i = 0; i < count; i++) {
@@ -406,6 +419,12 @@ namespace brandes {
         // TODO(stupaq) this is probably not worth looking at
         std::vector<float> res;
         CONT_BIND(ord, res);
+      }
+
+    private:
+    template<typename List>
+      static inline size_t bytes(List& lst) {
+        return lst.size() * sizeof(typename List::value_type);
       }
   };
 

@@ -2,11 +2,11 @@
 #ifndef MYCL_H_
 #define MYCL_H_
 
-#ifdef MYCL_DEBUG_BUILDS
 #include <iostream>
-#endif
 
+#ifdef MYCL_ERROR_CHECKING
 #define __CL_ENABLE_EXCEPTIONS
+#endif
 #include <CL/cl.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 
@@ -25,7 +25,7 @@ inline cl::Program program_from_file(const cl::Context& context,
   mapped_file mf(file_path, mapped_file::readonly);
   cl::Program::Sources source(1, std::make_pair(mf.const_data(), mf.size()));
   cl::Program program = cl::Program(context, source);
-#ifdef MYCL_DEBUG_BUILDS
+#ifdef MYCL_ERROR_CHECKING
   try {
     program.build(devices);
   } catch (...) {
@@ -47,9 +47,11 @@ inline cl::Context initialize_nvidia() {
     if (pi->getInfo<CL_PLATFORM_VENDOR>().compare("NVIDIA Corporation") == 0)
       break;
   }
+#ifdef MYCL_ERROR_CHECKING
   if (pi == platforms.end()) {
     throw cl::Error(CL_DEVICE_NOT_FOUND, "NVIDIA platform not found");
   }
+#endif
   cl_context_properties cps[] = { CL_CONTEXT_PLATFORM,
     (cl_context_properties)(*pi)(), 0 };
   return cl::Context(CL_DEVICE_TYPE_GPU, cps);
