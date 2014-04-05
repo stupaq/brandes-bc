@@ -360,13 +360,6 @@ namespace brandes {
         MICROBENCH_START(device_wait);
         Accelerator acc = ctx.get();
         cl::CommandQueue& q = acc.queue_;
-        // TODO(stupaq) move once you determine that it takes no time
-        cl::Kernel k_init(acc.program_, "vcsr_init");
-        cl::Kernel k_source(acc.program_, "vcsr_init_source");
-        cl::Kernel k_fwd(acc.program_, "vcsr_forward");
-        cl::Kernel k_interm(acc.program_, "vcsr_interm");
-        cl::Kernel k_back(acc.program_, "vcsr_backward");
-        cl::Kernel k_sum(acc.program_, "vcsr_sum");
         MICROBENCH_END(device_wait);
 
         cl::NDRange local(kWGroup);
@@ -375,6 +368,7 @@ namespace brandes {
         const int n1 = vlst.size();
         cl::NDRange n1_global(ROUND_UP(n1, kWGroup));
 
+        MICROBENCH_START(brandes_total);
         MICROBENCH_START(graph_to_gpu);
         // TODO(stupaq) do we need to make these writes synchronously?
         cl::Buffer proceed_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(bool));
@@ -387,33 +381,39 @@ namespace brandes {
         q.enqueueWriteBuffer(adj_cl, true, 0, bytes(adj), adj.data());
         MICROBENCH_END(graph_to_gpu);
 
+        { /* This approach appears to be measurably faster for bigger graphs
+             and we do not really care about dozens of us for small ones. */
+          cl::Kernel k_init(acc.program_, "vcsr_init");
+          k_init.setArg(0, n); k_init.setArg(1, bc_cl);
+          q.enqueueNDRangeKernel(k_init, cl::NullRange, n_global, local);
+        }
+
+#if 0
         /** We can move some arguments setting outside of the loop. */
-        k_init.setArg(0, n);
-        k_init.setArg(1, bc_cl);
+        cl::Kernel k_source(acc.program_, "vcsr_init_source");
         k_source.setArg(0, n);
         k_source.setArg(2, ds_cl);
+        cl::Kernel k_fwd(acc.program_, "vcsr_forward");
         k_fwd.setArg(0, n1);
         k_fwd.setArg(2, proceed_cl);
         k_fwd.setArg(3, vlst_cl);
         k_fwd.setArg(4, adj_cl);
         k_fwd.setArg(5, ds_cl);
+        cl::Kernel k_interm(acc.program_, "vcsr_interm");
         k_interm.setArg(0, n);
         k_interm.setArg(1, ds_cl);
         k_interm.setArg(2, delta_cl);
+        cl::Kernel k_back(acc.program_, "vcsr_backward");
         k_back.setArg(0, n1);
         k_back.setArg(2, vlst_cl);
         k_back.setArg(3, adj_cl);
         k_back.setArg(4, ds_cl);
         k_back.setArg(5, delta_cl);
+        cl::Kernel k_sum(acc.program_, "vcsr_sum");
         k_sum.setArg(0, n);
         k_sum.setArg(2, ds_cl);
         k_sum.setArg(3, delta_cl);
         k_sum.setArg(4, bc_cl);
-
-        // TODO(stupaq) memset bc
-        q.enqueueNDRangeKernel(k_init, cl::NullRange, n_global, local);
-        // TODO(stupaq) how to get rid of this barrier?
-        q.finish();
 
         for (int source = 0; source < n; source++) {
           k_source.setArg(1, source);
@@ -451,11 +451,12 @@ namespace brandes {
           // TODO(stupaq) how to get rid of this barrier?
           q.finish();
         }
+#endif
 
         std::vector<float> bc(n);
         q.enqueueReadBuffer(bc_cl, true, 0, bytes(bc), bc.data());
         q.finish();
-
+        MICROBENCH_END(brandes_total);
         CONT_BIND(ord, bc);
       }
 

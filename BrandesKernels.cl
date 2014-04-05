@@ -43,7 +43,7 @@ __kernel void vcsr_init(
     __global float* bc) {
   int my_i = get_global_id(0);
   if (my_i < global_id_range) {
-    *bc = 0;
+    bc[my_i] = 0;
   }
 }
 
