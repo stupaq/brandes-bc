@@ -24,6 +24,7 @@ inline cl::Program program_from_file(const cl::Context& context,
   using boost::iostreams::mapped_file;
   MICROBENCH_START(read_and_compile_program);
   mapped_file mf(file_path, mapped_file::readonly);
+  assert(mf.const_data()[mf.size() - 1]);
   cl::Program::Sources source(1, std::make_pair(mf.const_data(), mf.size()));
   cl::Program program = cl::Program(context, source);
 #ifdef MYCL_ERROR_CHECKING

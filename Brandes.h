@@ -386,9 +386,10 @@ namespace brandes {
           cl::Kernel k_init(acc.program_, "vcsr_init");
           k_init.setArg(0, n); k_init.setArg(1, bc_cl);
           q.enqueueNDRangeKernel(k_init, cl::NullRange, n_global, local);
+          // TODO(stupaq) how to get rid of this barrier?
+          q.finish();
         }
 
-#if 0
         /** We can move some arguments setting outside of the loop. */
         cl::Kernel k_source(acc.program_, "vcsr_init_source");
         k_source.setArg(0, n);
@@ -451,7 +452,6 @@ namespace brandes {
           // TODO(stupaq) how to get rid of this barrier?
           q.finish();
         }
-#endif
 
         std::vector<float> bc(n);
         q.enqueueReadBuffer(bc_cl, true, 0, bytes(bc), bc.data());
