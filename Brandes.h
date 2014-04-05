@@ -18,7 +18,8 @@
 #include "./MicroBench.h"
 #include "./MyCL.h"
 
-#define CONT_BIND(...) return Cont().template cont<Return>(__VA_ARGS__);
+#define CONT_BIND(...) return Cont().template cont<Return>(__VA_ARGS__)
+#define ROUND_UP(value, factor) (value + factor - 1 - (value - 1) % factor)
 
 namespace brandes {
 
@@ -370,9 +371,9 @@ namespace brandes {
 
         cl::NDRange local(kWGroup);
         const int n = vlst.back().map_;
-        cl::NDRange n_global((n + kWGroup - 1) / kWGroup);
+        cl::NDRange n_global(ROUND_UP(n, kWGroup));
         const int n1 = vlst.size();
-        cl::NDRange n1_global((n1 + kWGroup - 1) / kWGroup);
+        cl::NDRange n1_global(ROUND_UP(n1, kWGroup));
 
         MICROBENCH_START(graph_to_gpu);
         // TODO(stupaq) do we need to make these writes synchronously?
