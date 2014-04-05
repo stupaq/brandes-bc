@@ -349,7 +349,7 @@ namespace brandes {
       }
   };
 
-  template<typename Cont> struct betweenness {
+  template<int kWGroup, typename Cont> struct betweenness {
     template<typename Return, typename Reordering>
       inline Return cont(Context& ctx, Reordering& ord, VirtualList& vlst,
           VertexList& adj, VertexList&) const {
@@ -358,41 +358,92 @@ namespace brandes {
         // otherwise we might get bank conflicts
         MICROBENCH_START(device_wait);
         Accelerator acc = ctx.get();
-        cl::Context& dev = acc.context_;
         cl::CommandQueue& q = acc.queue_;
-        cl::Program& prog = acc.program_;
         // TODO(stupaq) move once you determine that it takes no time
-        cl::Kernel k_init(prog, "vcsr_init");
-        cl::Kernel k_forward(prog, "vcsr_forward");
+        cl::Kernel k_init(acc.program_, "vcsr_init");
+        cl::Kernel k_fwd(acc.program_, "vcsr_forward");
+        cl::Kernel k_interm(acc.program_, "vcsr_interm");
+        cl::Kernel k_back(acc.program_, "vcsr_backward");
+        cl::Kernel k_sum(acc.program_, "vcsr_sum");
         MICROBENCH_END(device_wait);
 
-        cl::Buffer vlst_cl(dev, CL_MEM_READ_ONLY, bytes(vlst));
+        const size_t n = vlst.back().map_;
+        cl::NDRange n_global((n + kWGroup - 1) / kWGroup);
+        cl::NDRange n_local(kWGroup);
+        const size_t n1 = vlst.size();
+        cl::NDRange n1_global((n1 + kWGroup - 1) / kWGroup);
+        cl::NDRange n1_local(kWGroup);
+
+        MICROBENCH_START(graph_to_gpu);
+        // TODO(stupaq) do we need to make these writes synchronously?
+        cl::Buffer proceed_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(bool));
+        cl::Buffer vlst_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vlst));
+        cl::Buffer adj_cl(acc.context_, CL_MEM_READ_ONLY, bytes(adj));
+        cl::Buffer ds_cl(acc.context_, CL_MEM_READ_WRITE, 2 * sizeof(int) * n);
+        cl::Buffer delta_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
+        cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
         q.enqueueWriteBuffer(vlst_cl, true, 0, bytes(vlst), vlst.data());
-        MICROBENCH_CHECKPOINT("%lu\n", bytes(vlst));
-
-        cl::Buffer adj_cl(dev, CL_MEM_READ_ONLY, bytes(adj));
         q.enqueueWriteBuffer(adj_cl, true, 0, bytes(adj), adj.data());
-        MICROBENCH_CHECKPOINT("%lu\n", bytes(adj));
+        MICROBENCH_END(graph_to_gpu);
 
-        bool proceed = false;
-        cl::Buffer proceed_cl(dev, CL_MEM_READ_WRITE, sizeof(bool));
-        q.enqueueWriteBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
-        MICROBENCH_CHECKPOINT("1\n");
+        /** We can move some arguments setting outside of the loop. */
+        k_init.setArg(0, n);
+        k_init.setArg(2, proceed_cl);
+        k_init.setArg(3, ds_cl);
+        k_fwd.setArg(0, n1);
+        k_fwd.setArg(2, proceed_cl);
+        k_fwd.setArg(3, vlst_cl);
+        k_fwd.setArg(4, adj_cl);
+        k_fwd.setArg(5, ds_cl);
+        k_interm.setArg(0, n);
+        k_interm.setArg(1, ds_cl);
+        k_interm.setArg(2, delta_cl);
+        k_back.setArg(0, n1);
+        k_back.setArg(2, vlst_cl);
+        k_back.setArg(3, adj_cl);
+        k_back.setArg(4, ds_cl);
+        k_back.setArg(5, delta_cl);
+        k_sum.setArg(0, n);
+        k_sum.setArg(2, ds_cl);
+        k_sum.setArg(3, delta_cl);
+        k_sum.setArg(4, bc_cl);
 
-        /*
-           const size_t n = vlst.back().map_;
-           const size_t n1 = vlst.size();
+        // TODO(stupaq) memset bc
 
-           int source = 0;
-        // TODO(stupaq) for each source
-        size_t ds_cl_sz = 2 * sizeof(int) * n;
-        cl::Buffer ds_cl(dev, CL_MEM_READ_WRITE, ds_cl_sz);
-        k_init.setArg(0, source);
-        k_init.setArg(1, ds_cl);
-        q.enqueueNDRangeKernel(k_init, cl::NullRange, cl::NDRange(n1),
-        cl::NDRange(1));
-        MICROBENCH_CHECKPOINT("0\n");
-        */
+        for (int source = 0; source < n; source++) {
+          k_init.setArg(1, source);
+          q.enqueueNDRangeKernel(k_init, cl::NullRange, n_global, n_local);
+
+          bool proceed;
+          int curr_dist = 0;
+          do {
+            proceed = false;
+            // TODO(stupaq) is it beneficial to merge it with the kernel?
+            q.enqueueWriteBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
+            k_fwd.setArg(1, curr_dist);
+            q.enqueueNDRangeKernel(k_fwd, cl::NullRange, n1_global, n1_local);
+            // TODO(stupaq) how to get rid of this barrier?
+            q.finish();
+            q.enqueueReadBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
+            q.finish();
+          } while (proceed);
+
+          q.enqueueNDRangeKernel(k_interm, cl::NullRange, n_global, n_local);
+          // TODO(stupaq) how to get rid of this barrier?
+          q.finish();
+
+          while (--curr_dist > 0) {
+            k_back.setArg(1, curr_dist);
+            q.enqueueNDRangeKernel(k_back, cl::NullRange, n1_global, n1_local);
+            // TODO(stupaq) how to get rid of this barrier?
+            q.finish();
+          }
+
+          k_sum.setArg(1, source);
+          q.enqueueNDRangeKernel(k_sum, cl::NullRange, n_global, n_local);
+          // TODO(stupaq) how to get rid of this barrier?
+          q.finish();
+        }
 
         // TODO(stupaq) short test
         cl::Kernel kernel(acc.program_, "square");
@@ -404,13 +455,10 @@ namespace brandes {
         for (int i = 0; i < count; i++)
           data[i] = rand() / static_cast<float>(RAND_MAX);
 
-        cl::Buffer input = cl::Buffer(dev, CL_MEM_READ_ONLY, count *
-            sizeof(int));
-        cl::Buffer output = cl::Buffer(dev, CL_MEM_WRITE_ONLY, count
-            * sizeof(int));
+        cl::Buffer input(acc.context_, CL_MEM_READ_ONLY, count * sizeof(int));
+        cl::Buffer output(acc.context_, CL_MEM_WRITE_ONLY, count * sizeof(int));
 
-        q.enqueueWriteBuffer(input, CL_TRUE, 0, count * sizeof(int),
-            data);
+        q.enqueueWriteBuffer(input, CL_TRUE, 0, count * sizeof(int), data);
 
         kernel.setArg(0, input);
         kernel.setArg(1, output);

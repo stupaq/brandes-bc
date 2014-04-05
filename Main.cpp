@@ -25,9 +25,9 @@
 #elif ALGORITHM == 0x110
 #define ALGORITHM_PIPE csr_create<ocsr_create<vcsr_pass<betweenness<postprocess>>>>
 #elif ALGORITHM == 0x101
-#define ALGORITHM_PIPE csr_create<ocsr_pass<vcsr_create<4, betweenness<postprocess>>>>
+#define ALGORITHM_PIPE csr_create<ocsr_pass<vcsr_create<4, betweenness<32, postprocess>>>>
 #elif ALGORITHM == 0x111 || ALGORITHM == 0
-#define ALGORITHM_PIPE csr_create<ocsr_create<vcsr_create<4, betweenness<postprocess>>>>
+#define ALGORITHM_PIPE csr_create<ocsr_create<vcsr_create<4, betweenness<32, postprocess>>>>
 #endif
 
 #include <cstdio>
