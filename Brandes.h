@@ -361,18 +361,18 @@ namespace brandes {
         cl::CommandQueue& q = acc.queue_;
         // TODO(stupaq) move once you determine that it takes no time
         cl::Kernel k_init(acc.program_, "vcsr_init");
+        cl::Kernel k_source(acc.program_, "vcsr_init_source");
         cl::Kernel k_fwd(acc.program_, "vcsr_forward");
         cl::Kernel k_interm(acc.program_, "vcsr_interm");
         cl::Kernel k_back(acc.program_, "vcsr_backward");
         cl::Kernel k_sum(acc.program_, "vcsr_sum");
         MICROBENCH_END(device_wait);
 
-        const size_t n = vlst.back().map_;
+        cl::NDRange local(kWGroup);
+        const int n = vlst.back().map_;
         cl::NDRange n_global((n + kWGroup - 1) / kWGroup);
-        cl::NDRange n_local(kWGroup);
-        const size_t n1 = vlst.size();
+        const int n1 = vlst.size();
         cl::NDRange n1_global((n1 + kWGroup - 1) / kWGroup);
-        cl::NDRange n1_local(kWGroup);
 
         MICROBENCH_START(graph_to_gpu);
         // TODO(stupaq) do we need to make these writes synchronously?
@@ -388,8 +388,9 @@ namespace brandes {
 
         /** We can move some arguments setting outside of the loop. */
         k_init.setArg(0, n);
-        k_init.setArg(2, proceed_cl);
-        k_init.setArg(3, ds_cl);
+        k_init.setArg(1, bc_cl);
+        k_source.setArg(0, n);
+        k_source.setArg(2, ds_cl);
         k_fwd.setArg(0, n1);
         k_fwd.setArg(2, proceed_cl);
         k_fwd.setArg(3, vlst_cl);
@@ -409,10 +410,15 @@ namespace brandes {
         k_sum.setArg(4, bc_cl);
 
         // TODO(stupaq) memset bc
+        q.enqueueNDRangeKernel(k_init, cl::NullRange, n_global, local);
+        // TODO(stupaq) how to get rid of this barrier?
+        q.finish();
 
         for (int source = 0; source < n; source++) {
-          k_init.setArg(1, source);
-          q.enqueueNDRangeKernel(k_init, cl::NullRange, n_global, n_local);
+          k_source.setArg(1, source);
+          q.enqueueNDRangeKernel(k_source, cl::NullRange, n_global, local);
+          // TODO(stupaq) how to get rid of this barrier?
+          q.finish();
 
           bool proceed;
           int curr_dist = 0;
@@ -421,26 +427,26 @@ namespace brandes {
             // TODO(stupaq) is it beneficial to merge it with the kernel?
             q.enqueueWriteBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
             k_fwd.setArg(1, curr_dist);
-            q.enqueueNDRangeKernel(k_fwd, cl::NullRange, n1_global, n1_local);
+            q.enqueueNDRangeKernel(k_fwd, cl::NullRange, n1_global, local);
             // TODO(stupaq) how to get rid of this barrier?
             q.finish();
             q.enqueueReadBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
             q.finish();
           } while (proceed);
 
-          q.enqueueNDRangeKernel(k_interm, cl::NullRange, n_global, n_local);
+          q.enqueueNDRangeKernel(k_interm, cl::NullRange, n_global, local);
           // TODO(stupaq) how to get rid of this barrier?
           q.finish();
 
           while (--curr_dist > 0) {
             k_back.setArg(1, curr_dist);
-            q.enqueueNDRangeKernel(k_back, cl::NullRange, n1_global, n1_local);
+            q.enqueueNDRangeKernel(k_back, cl::NullRange, n1_global, local);
             // TODO(stupaq) how to get rid of this barrier?
             q.finish();
           }
 
           k_sum.setArg(1, source);
-          q.enqueueNDRangeKernel(k_sum, cl::NullRange, n_global, n_local);
+          q.enqueueNDRangeKernel(k_sum, cl::NullRange, n_global, local);
           // TODO(stupaq) how to get rid of this barrier?
           q.finish();
         }
@@ -464,10 +470,8 @@ namespace brandes {
         kernel.setArg(1, output);
         kernel.setArg(2, count);
 
-        cl::NDRange global(count);
-        cl::NDRange local(1);
-        q.enqueueNDRangeKernel(kernel, cl::NullRange, global,
-            local);
+        q.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count),
+            cl::NDRange(1));
 
         q.enqueueReadBuffer(output, CL_TRUE, 0, count * sizeof(int),
             results);
