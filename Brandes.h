@@ -452,50 +452,19 @@ namespace brandes {
           q.finish();
         }
 
-        // TODO(stupaq) short test
-        cl::Kernel kernel(acc.program_, "square");
-
-        const int count = 1024;
-        float* data = new float[count];
-        float* results = new float[count];
-
-        for (int i = 0; i < count; i++)
-          data[i] = rand() / static_cast<float>(RAND_MAX);
-
-        cl::Buffer input(acc.context_, CL_MEM_READ_ONLY, count * sizeof(int));
-        cl::Buffer output(acc.context_, CL_MEM_WRITE_ONLY, count * sizeof(int));
-
-        q.enqueueWriteBuffer(input, CL_TRUE, 0, count * sizeof(int), data);
-
-        kernel.setArg(0, input);
-        kernel.setArg(1, output);
-        kernel.setArg(2, count);
-
-        q.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(count),
-            cl::NDRange(1));
-
-        q.enqueueReadBuffer(output, CL_TRUE, 0, count * sizeof(int),
-            results);
+        std::vector<float> bc(n);
+        q.enqueueReadBuffer(bc_cl, true, 0, bytes(bc), bc.data());
         q.finish();
 
-        int correct = 0;
-        for (int i = 0; i < count; i++) {
-          if (results[i] == data[i] * data[i])
-            correct++;
-        }
-        printf("correct: %d / %d\n", correct, count);
-
-        std::vector<float> res;
-
-        CONT_BIND(ord, res);
+        CONT_BIND(ord, bc);
       }
 
     template<typename Return, typename Reordering>
       inline Return cont(Context&, Reordering& ord, VertexList&, VertexList&,
           VertexList&) const {
         // TODO(stupaq) this is probably not worth looking at
-        std::vector<float> res;
-        CONT_BIND(ord, res);
+        std::vector<float> bc;
+        CONT_BIND(ord, bc);
       }
 
     private:
