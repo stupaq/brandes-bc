@@ -418,22 +418,11 @@ namespace brandes {
         k_sum.setArg(3, delta_cl);
         k_sum.setArg(4, bc_cl);
 
-        // FIXME(stupaq)
-        //for (int source = 0; source < n; source++) {
-        for (int source = 0; source < 1; source++) {
+        for (int source = 0; source < n; source++) {
           k_source.setArg(1, source);
           q.enqueueNDRangeKernel(k_source, cl::NullRange, n_global, local);
           // TODO(stupaq) how to get rid of this barrier?
           q.finish();
-
-          struct DistSigma {
-            int dist_;
-            int sigma_;
-          } __attribute__((packed));
-          MYCL_DEBUG_PRINT(q, ds_cl, n, DistSigma, el) {
-            printf("%d,%d ", el.dist_, el.sigma_);
-          }
-          printf("\n");
 
           bool proceed;
           int curr_dist = 0;
@@ -441,7 +430,7 @@ namespace brandes {
             proceed = false;
             // TODO(stupaq) is it beneficial to merge it with the kernel?
             q.enqueueWriteBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
-            k_fwd.setArg(1, curr_dist);
+            k_fwd.setArg(1, curr_dist++);
             q.enqueueNDRangeKernel(k_fwd, cl::NullRange, n1_global, local);
             // TODO(stupaq) how to get rid of this barrier?
             q.finish();
@@ -453,8 +442,8 @@ namespace brandes {
           // TODO(stupaq) how to get rid of this barrier?
           q.finish();
 
-          while (--curr_dist > 0) {
-            k_back.setArg(1, curr_dist);
+          while (curr_dist > 1) {
+            k_back.setArg(1, --curr_dist);
             q.enqueueNDRangeKernel(k_back, cl::NullRange, n1_global, local);
             // TODO(stupaq) how to get rid of this barrier?
             q.finish();

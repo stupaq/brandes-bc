@@ -108,7 +108,7 @@ __kernel void vcsr_backward(
     __global float* delta) {
   int my_vi = get_global_id(0);
   if (my_vi < global_id_range) {
-    struct Virtual my_pm = vlst[my_pm.map_];
+    struct Virtual my_pm = vlst[my_vi];
     if (ds[my_pm.map_].dist_ == curr_dist - 1) {
       int k = my_pm.ptr_;
       const int k_end = vlst[my_vi + 1].ptr_;
@@ -136,9 +136,6 @@ __kernel void vcsr_sum(
     if (my_ds.dist_ != -1) {
       bc[my_i] += delta[my_i] * my_ds.sigma_ - 1;
     }
-  }
-  if (my_i < global_id_range) {
-    bc[my_i] = ds[my_i].sigma_;
   }
 }
 
