@@ -390,8 +390,6 @@ namespace brandes {
         k_init.setArg(0, n);
         k_init.setArg(1, bc_cl);
         q.enqueueNDRangeKernel(k_init, cl::NullRange, n_global, local);
-        // TODO(stupaq) how to get rid of this barrier?
-        q.finish();
 
         /** We can move some arguments setting outside of the loop. */
         cl::Kernel k_source(acc.program_, "vcsr_init_source");
@@ -422,8 +420,6 @@ namespace brandes {
         for (int source = 0; source < n; source++) {
           k_source.setArg(1, source);
           q.enqueueNDRangeKernel(k_source, cl::NullRange, n_global, local);
-          // TODO(stupaq) how to get rid of this barrier?
-          q.finish();
 
           bool proceed;
           int curr_dist = 0;
@@ -433,27 +429,19 @@ namespace brandes {
             q.enqueueWriteBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
             k_fwd.setArg(1, curr_dist++);
             q.enqueueNDRangeKernel(k_fwd, cl::NullRange, n1_global, local);
-            // TODO(stupaq) how to get rid of this barrier?
-            q.finish();
             q.enqueueReadBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
             q.finish();
           } while (proceed);
 
           q.enqueueNDRangeKernel(k_interm, cl::NullRange, n_global, local);
-          // TODO(stupaq) how to get rid of this barrier?
-          q.finish();
 
           while (curr_dist > 1) {
             k_back.setArg(1, --curr_dist);
             q.enqueueNDRangeKernel(k_back, cl::NullRange, n1_global, local);
-            // TODO(stupaq) how to get rid of this barrier?
-            q.finish();
           }
 
           k_sum.setArg(1, source);
           q.enqueueNDRangeKernel(k_sum, cl::NullRange, n_global, local);
-          // TODO(stupaq) how to get rid of this barrier?
-          q.finish();
 
           if (source % (n / 24) == 0)
             MICROPROF_INFO("PROGRESS: %d / %d\n", source, n);
