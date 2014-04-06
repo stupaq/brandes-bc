@@ -53,10 +53,10 @@ __kernel void vcsr_init_source(
     __global struct DistSigma* ds) {
   int my_i = get_global_id(0);
   if (my_i < global_id_range) {
-    struct DistSigma tmp;
-    tmp.dist_ = select(-1, 0, source == my_i);
-    tmp.sigma_ = 0;
-    ds[my_i] = tmp;
+    struct DistSigma my_ds;
+    my_ds.dist_ = select(-1, 0, source == my_i);
+    my_ds.sigma_ = select(0, 1, source == my_i);
+    ds[my_i] = my_ds;
   }
 }
 
@@ -132,10 +132,13 @@ __kernel void vcsr_sum(
     __global float* bc) {
   int my_i = get_global_id(0);
   if (my_i < global_id_range && my_i != source) {
-    struct DistSigma tmp = ds[my_i];
-    if (ds[my_i].dist_ != -1) {
-      bc[my_i] += delta[my_i] * ds[my_i].sigma_ - 1;
+    struct DistSigma my_ds = ds[my_i];
+    if (my_ds.dist_ != -1) {
+      bc[my_i] += delta[my_i] * my_ds.sigma_ - 1;
     }
+  }
+  if (my_i < global_id_range) {
+    bc[my_i] = ds[my_i].sigma_;
   }
 }
 

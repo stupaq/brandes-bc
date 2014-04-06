@@ -22,6 +22,8 @@
 #define ROUND_UP(value, factor) (value + factor - 1 - (value - 1) % factor)
 
 namespace brandes {
+  using mycl::Accelerator;
+  using mycl::bytes;
 
   typedef std::future<Accelerator> Context;
 
@@ -381,14 +383,14 @@ namespace brandes {
         q.enqueueWriteBuffer(adj_cl, true, 0, bytes(adj), adj.data());
         MICROBENCH_END(graph_to_gpu);
 
-        { /* This approach appears to be measurably faster for bigger graphs
-             and we do not really care about dozens of us for small ones. */
-          cl::Kernel k_init(acc.program_, "vcsr_init");
-          k_init.setArg(0, n); k_init.setArg(1, bc_cl);
-          q.enqueueNDRangeKernel(k_init, cl::NullRange, n_global, local);
-          // TODO(stupaq) how to get rid of this barrier?
-          q.finish();
-        }
+        /* This approach appears to be measurably faster for bigger graphs
+           and we do not really care about dozens of us for small ones. */
+        cl::Kernel k_init(acc.program_, "vcsr_init");
+        k_init.setArg(0, n);
+        k_init.setArg(1, bc_cl);
+        q.enqueueNDRangeKernel(k_init, cl::NullRange, n_global, local);
+        // TODO(stupaq) how to get rid of this barrier?
+        q.finish();
 
         /** We can move some arguments setting outside of the loop. */
         cl::Kernel k_source(acc.program_, "vcsr_init_source");
@@ -416,11 +418,22 @@ namespace brandes {
         k_sum.setArg(3, delta_cl);
         k_sum.setArg(4, bc_cl);
 
-        for (int source = 0; source < n; source++) {
+        // FIXME(stupaq)
+        //for (int source = 0; source < n; source++) {
+        for (int source = 0; source < 1; source++) {
           k_source.setArg(1, source);
           q.enqueueNDRangeKernel(k_source, cl::NullRange, n_global, local);
           // TODO(stupaq) how to get rid of this barrier?
           q.finish();
+
+          struct DistSigma {
+            int dist_;
+            int sigma_;
+          } __attribute__((packed));
+          MYCL_DEBUG_PRINT(q, ds_cl, n, DistSigma, el) {
+            printf("%d,%d ", el.dist_, el.sigma_);
+          }
+          printf("\n");
 
           bool proceed;
           int curr_dist = 0;
@@ -461,17 +474,11 @@ namespace brandes {
       }
 
     template<typename Return, typename Reordering>
-      inline Return cont(Context&, Reordering& ord, VertexList&, VertexList&,
-          VertexList&) const {
+      inline Return cont(Context&, Reordering& ord, VertexList&,
+          VertexList&, VertexList&) const {
         // TODO(stupaq) this is probably not worth looking at
         std::vector<float> bc;
         CONT_BIND(ord, bc);
-      }
-
-    private:
-    template<typename List>
-      static inline size_t bytes(List& lst) {
-        return lst.size() * sizeof(typename List::value_type);
       }
   };
 

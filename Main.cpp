@@ -36,24 +36,13 @@
 #include <utility>
 #include <string>
 #include <future>
+#include <vector>
 
 #include "./MicroBench.h"
 #include "./MyCL.h"
 #include "./Brandes.h"
 
 using namespace brandes;
-
-static Accelerator init_device() {
-  Accelerator acc;
-  MICROBENCH_START(setup_opencl_device);
-  acc.context_ = initialize_nvidia();
-  VECTOR_CLASS<cl::Device> devices = acc.context_.getInfo<CL_CONTEXT_DEVICES>();
-  acc.queue_ = cl::CommandQueue(acc.context_, devices[0]);
-  acc.program_ = program_from_file(acc.context_, devices,
-      "BrandesKernels.cl");
-  MICROBENCH_END(setup_opencl_device);
-  return acc;
-}
 
 template<typename Result>
 static inline void generic_write(Result& res, const char* file_path) {
@@ -71,7 +60,7 @@ int main(int argc, const char* argv[]) {
   MICROBENCH_START(main_total);
   assert(argc == 3); SUPPRESS_UNUSED(argc);
 
-  Context ctx = std::async(std::launch::async, init_device);
+  Context ctx = std::async(std::launch::async, mycl::init_device);
 #ifdef MYCL_ERROR_CHECKING
   try {
 #endif
