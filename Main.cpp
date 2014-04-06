@@ -1,7 +1,5 @@
 /** @author Mateusz Machalica */
 
-#include <boost/preprocessor/stringize.hpp>
-
 #if   OPTIMIZE == 3
 #pragma message "Optimized build - no error checking."
 #define NDEBUG
@@ -12,27 +10,30 @@
 #elif OPTIMIZE == 1
 #pragma message "Partially optimized build for microbenchmarks."
 #define NDEBUG
-#define MICROBENCH_ENABLE
+#define MICROPROF_ENABLE
 #define MYCL_ERROR_CHECKING
 #elif OPTIMIZE == 0
 #pragma message "Non-optimized build with extra assertions."
-#define MICROBENCH_ENABLE
+#define MICROPROF_ENABLE
 #define MYCL_ERROR_CHECKING
 #endif
 
 #if   ALGORITHM == 0x100
-#define ALGORITHM_PIPE csr_create<ocsr_pass<vcsr_pass<betweenness<postprocess>>>>
+#define ALGORITHM_PIPE\
+  csr_create<ocsr_pass<vcsr_pass<betweenness<postprocess>>>>
 #elif ALGORITHM == 0x110
-#define ALGORITHM_PIPE csr_create<ocsr_create<vcsr_pass<betweenness<postprocess>>>>
+#define ALGORITHM_PIPE\
+  csr_create<ocsr_create<vcsr_pass<betweenness<postprocess>>>>
 #elif ALGORITHM == 0x101
-#define ALGORITHM_PIPE csr_create<ocsr_pass<vcsr_create<4, betweenness<32, postprocess>>>>
+#define ALGORITHM_PIPE\
+  csr_create<ocsr_pass<vcsr_create<4, betweenness<32, postprocess>>>>
 #elif ALGORITHM == 0x111 || ALGORITHM == 0
-#define ALGORITHM_PIPE csr_create<ocsr_create<vcsr_create<4, betweenness<32, postprocess>>>>
+#define ALGORITHM_PIPE\
+  csr_create<ocsr_create<vcsr_create<4, betweenness<32, postprocess>>>>
 #endif
 
 #include <cstdio>
 #include <cassert>
-
 #include <utility>
 #include <string>
 #include <future>
@@ -46,18 +47,18 @@ using namespace brandes;
 
 template<typename Result>
 static inline void generic_write(Result& res, const char* file_path) {
-  MICROBENCH_START(writing_results);
+  MICROPROF_START(writing_results);
   FILE* fp = fopen(file_path, "w");
   assert(fp);
   for (auto v : res) {
     fprintf(fp, "%f\n", v);
   }
   fclose(fp);
-  MICROBENCH_END(writing_results);
+  MICROPROF_END(writing_results);
 }
 
 int main(int argc, const char* argv[]) {
-  MICROBENCH_START(main_total);
+  MICROPROF_START(main_total);
   assert(argc == 3); SUPPRESS_UNUSED(argc);
 
   Context ctx = std::async(std::launch::async, mycl::init_device);
@@ -68,10 +69,10 @@ int main(int argc, const char* argv[]) {
     generic_write(res, argv[2]);
 #ifdef MYCL_ERROR_CHECKING
   } catch (cl::Error error) {
-    fprintf(stderr, "%s (error code: %d)\n", error.what(), error.err());
+    fprintf(MYCL_STREAM, "%s (error code: %d)\n", error.what(), error.err());
   }
 #endif
 
-  MICROBENCH_END(main_total);
+  MICROPROF_END(main_total);
   return 0;
 }

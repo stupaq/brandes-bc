@@ -51,7 +51,7 @@ namespace brandes {
       using boost::spirit::qi::int_;
       using boost::spirit::qi::eol;
       using boost::spirit::ascii::blank;
-      MICROBENCH_START(reading_graph);
+      MICROPROF_START(reading_graph);
       mapped_file mf(file_path, mapped_file::readonly);
       EdgeList E;
       E.reserve(kEdgesInit);
@@ -72,14 +72,14 @@ namespace brandes {
         assert(n > e.v1_ && n > e.v2_);
       }
 #endif  // NDEBUG
-      MICROBENCH_END(reading_graph);
+      MICROPROF_END(reading_graph);
       CONT_BIND(ctx, n, E);
     }
 
   template<typename Cont> struct csr_create {
     template<typename Return>
       inline Return cont(Context& ctx, const VertexId n, EdgeList& E) const {
-        MICROBENCH_START(adjacency);
+        MICROPROF_START(adjacency);
         VertexList ptr(n + 1), adj(2 * E.size());
         for (auto e : E) {
           ptr[e.v1_]++;
@@ -103,7 +103,7 @@ namespace brandes {
           assert(alloc[i] == ptr[i + 1] - ptr[i]);
         }
 #endif  // NDEBUG
-        MICROBENCH_END(adjacency);
+        MICROPROF_END(adjacency);
         CONT_BIND(ctx, ptr, adj);
       }
   };
@@ -125,7 +125,7 @@ namespace brandes {
     template<typename Return>
       inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj)
       const {
-        MICROBENCH_START(cc_ordering);
+        MICROPROF_START(cc_ordering);
         const VertexId n = ptr.size() - 1;
         VertexList bfsno(n, -1);
         VertexList queue(n);
@@ -167,7 +167,7 @@ namespace brandes {
         assert(ccs.back() == n);
 #endif  // NDEBUG
         Permutation ord = { bfsno };
-        MICROBENCH_END(cc_ordering);
+        MICROPROF_END(cc_ordering);
         CONT_BIND(ctx, ord, queue, ptr, adj, ccs);
       }
   };
@@ -176,10 +176,10 @@ namespace brandes {
     template<typename Return>
       inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj)
       const {
-        MICROBENCH_START(cc_ordering);
+        MICROPROF_START(cc_ordering);
         const VertexId n = ptr.size() - 1;
         VertexList ccs = { 0, n };
-        MICROBENCH_END(cc_ordering);
+        MICROPROF_END(cc_ordering);
         CONT_BIND(ctx, ptr, adj, ccs);
       }
   };
@@ -190,7 +190,7 @@ namespace brandes {
           queue, const VertexList& ptr, const VertexList& adj, const
           VertexList& ccs) const
       {
-        MICROBENCH_START(virtualization);
+        MICROPROF_START(virtualization);
         VirtualList vlst;
         VertexList vccs;
         vccs.reserve(ccs.size());
@@ -223,19 +223,19 @@ namespace brandes {
             itccs++;
           }
         }
-        MICROBENCH_WARN(kN1Estimate < vlst.capacity(),
+        MICROPROF_WARN(kN1Estimate < vlst.capacity(),
             "vlst estimate too small");
 #ifndef NDEBUG
         assertions(queue, ptr, adj, ccs, vlst, oadj, vccs);
 #endif  // NDEBUG
-        MICROBENCH_END(virtualization);
+        MICROPROF_END(virtualization);
         CONT_BIND(ctx, ord, vlst, oadj, vccs);
       }
 
     template<typename Return>
       inline Return cont(Context& ctx, const VertexList& ptr, VertexList& adj,
           const VertexList& ccs) const {
-        MICROBENCH_START(virtualization);
+        MICROPROF_START(virtualization);
         const VertexId n = ptr.size() - 1;
         VirtualList vlst;
         VertexList vccs;
@@ -258,13 +258,13 @@ namespace brandes {
         }
         vccs.push_back(vlst.size());
         vlst.push_back(Virtual(ptr[n], n));
-        MICROBENCH_WARN(kN1Estimate < vlst.capacity(),
+        MICROPROF_WARN(kN1Estimate < vlst.capacity(),
             "vlst estimate too small");
         Identity id;
 #ifndef NDEBUG
         assertions(id, ptr, adj, ccs, vlst, adj, vccs);
 #endif  // NDEBUG
-        MICROBENCH_END(virtualization);
+        MICROPROF_END(virtualization);
         CONT_BIND(ctx, id, vlst, adj, vccs);
       }
 
@@ -309,7 +309,7 @@ namespace brandes {
       inline Return cont(Context& ctx, Reordering& ord, const VertexList&
           queue, VertexList& ptr, const VertexList& adj, VertexList& ccs) const
       {
-        MICROBENCH_START(virtualization);
+        MICROPROF_START(virtualization);
         VertexList optr(ptr.size()), oadj(adj.size());
         auto itoadj0 = oadj.begin(),
              itoadj = itoadj0,
@@ -338,16 +338,16 @@ namespace brandes {
           }
         }
 #endif  // NDEBUG
-        MICROBENCH_END(virtualization);
+        MICROPROF_END(virtualization);
         CONT_BIND(ctx, ord, optr, oadj, ccs);
       }
 
     template<typename Return>
       inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj,
           VertexList& ccs) const {
-        MICROBENCH_START(virtualization);
+        MICROPROF_START(virtualization);
         Identity id;
-        MICROBENCH_END(virtualization);
+        MICROPROF_END(virtualization);
         CONT_BIND(ctx, id, ptr, adj, ccs);
       }
   };
@@ -359,10 +359,10 @@ namespace brandes {
         // TODO(stupaq) making use of connected components information
         // might require aligning component's boundaries with warp size
         // otherwise we might get bank conflicts
-        MICROBENCH_START(device_wait);
+        MICROPROF_START(device_wait);
         Accelerator acc = ctx.get();
         cl::CommandQueue& q = acc.queue_;
-        MICROBENCH_END(device_wait);
+        MICROPROF_END(device_wait);
 
         cl::NDRange local(kWGroup);
         const int n = vlst.back().map_;
@@ -370,8 +370,8 @@ namespace brandes {
         const int n1 = vlst.size();
         cl::NDRange n1_global(ROUND_UP(n1, kWGroup));
 
-        MICROBENCH_START(brandes_total);
-        MICROBENCH_START(graph_to_gpu);
+        MICROBENCH_TIMEPOINT(moving_data);
+        MICROPROF_START(graph_to_gpu);
         // TODO(stupaq) do we need to make these writes synchronously?
         cl::Buffer proceed_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(bool));
         cl::Buffer vlst_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vlst));
@@ -381,8 +381,9 @@ namespace brandes {
         cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
         q.enqueueWriteBuffer(vlst_cl, true, 0, bytes(vlst), vlst.data());
         q.enqueueWriteBuffer(adj_cl, true, 0, bytes(adj), adj.data());
-        MICROBENCH_END(graph_to_gpu);
+        MICROPROF_END(graph_to_gpu);
 
+        MICROBENCH_TIMEPOINT(starting_kernels);
         /* This approach appears to be measurably faster for bigger graphs
            and we do not really care about dozens of us for small ones. */
         cl::Kernel k_init(acc.program_, "vcsr_init");
@@ -458,7 +459,13 @@ namespace brandes {
         std::vector<float> bc(n);
         q.enqueueReadBuffer(bc_cl, true, 0, bytes(bc), bc.data());
         q.finish();
-        MICROBENCH_END(brandes_total);
+
+        MICROBENCH_TIMEPOINT(fetched_results);
+        MICROBENCH_REPORT(starting_kernels, fetched_results, stderr, "%ld\n",
+            std::chrono::milliseconds);
+        MICROBENCH_REPORT(moving_data, fetched_results, stderr, "%ld\n",
+            std::chrono::milliseconds);
+
         CONT_BIND(ord, bc);
       }
 
@@ -476,7 +483,8 @@ namespace brandes {
       inline Return cont(Reordering& ord, Result& reordered) const {
         Return original(reordered.size());
         for (VertexId orig = 0, end = original.size(); orig < end; orig++) {
-          original[orig] = cast<typename Return::value_type>(reordered[ord[orig]]);
+          original[orig] =
+            cast<typename Return::value_type>(reordered[ord[orig]]);
         }
         return original;
       }

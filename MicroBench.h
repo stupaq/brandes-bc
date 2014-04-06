@@ -3,41 +3,33 @@
 #define MICROBENCH_H_
 
 #include <cstdio>
-
 #include <chrono>
 
-#define GCC_VERSION (__GNUC__ * 10000 \
-    + __GNUC_MINOR__ * 100 \
-    + __GNUC_PATCHLEVEL__)
-#else
-
-#if GCC_VERSION >= 40700
-typedef std::chrono::steady_clock MicroBenchClock;
-#else
+#if (__GNUC__ < 4 || __GNUC_MINOR__ < 7)
 typedef std::chrono::monotonic_clock MicroBenchClock;
+#else
+typedef std::chrono::steady_clock MicroBenchClock;
 #endif
 
-typedef std::chrono::duration<double, std::milli> MicroBenchUnits;
+#define MICROBENCH_TIMEPOINT(name)\
+  MicroBenchClock::time_point name = MicroBenchClock::now()
+#define MICROBENCH_REPORT(start, end, os, fmt, units)\
+  fprintf(os, fmt, std::chrono::duration_cast<units>(end - start).count())
 
-#ifdef MICROBENCH_ENABLE
-#define MICROBENCH_START(name)\
-  MicroBenchClock::time_point name ## _start = MicroBenchClock::now();
-#define MICROBENCH_END(name)\
-  MicroBenchClock::time_point name ## _end = MicroBenchClock::now();\
-  fprintf(stderr, #name ":\t%.3f\n", std::chrono::duration_cast<MicroBenchUnits>\
-      (name ## _end - name ## _start).count());
-#define MICROBENCH_WARN(cond, warn)\
-  if (cond) {\
-    fprintf(stderr, "WARNING:\t%s\n", warn);\
-  }
-#define MICROBENCH_CHECKPOINT(...)\
-  fprintf(stderr, __VA_ARGS__);\
-  fflush(stderr);
+#ifdef MICROPROF_ENABLE
+typedef std::chrono::duration<double, std::milli> MicroProfUnits;
+#define MICROPROF_STREAM stdout
+#define MICROPROF_START(name) MICROBENCH_TIMEPOINT(name ## _start)
+#define MICROPROF_END(name)\
+  MICROBENCH_TIMEPOINT(name ## _end);\
+  MICROBENCH_REPORT(name ## _start, name ## _end, MICROPROF_STREAM, \
+      "PROFILING:\t" #name "\t%.3f\n", MicroProfUnits)
+#define MICROPROF_WARN(cond, warn)\
+  if (cond) fprintf(MICROPROF_STREAM, "WARNING:\t%s\n", warn)
 #else
-#define MICROBENCH_START(name)
-#define MICROBENCH_END(name)
-#define MICROBENCH_WARN(cond, warn)
-#define MICROBENCH_CHECKPOINT(...)
+#define MICROPROF_START(name)
+#define MICROPROF_END(name)
+#define MICROPROF_WARN(cond, warn)
 #endif
 
 #define SUPPRESS_UNUSED(x) (static_cast<void>(x))
