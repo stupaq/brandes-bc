@@ -454,6 +454,9 @@ namespace brandes {
           q.enqueueNDRangeKernel(k_sum, cl::NullRange, n_global, local);
           // TODO(stupaq) how to get rid of this barrier?
           q.finish();
+
+          if (source % (n / 24) == 0)
+            MICROPROF_INFO("PROGRESS: %d / %d\n", source, n);
         }
 
         std::vector<float> bc(n);

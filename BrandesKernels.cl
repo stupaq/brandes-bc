@@ -1,15 +1,5 @@
 /** @author Mateusz Machalica */
 
-// TODO(stupaq) remove this
-__kernel void square(
-    __global float* input,
-    __global float* output,
-    const unsigned int count) {
-  int i = get_global_id(0);
-  if(i < count)
-    output[i] = input[i] * input[i];
-}
-
 /** Atomic add implementation for floats. */
 typedef union {
   unsigned int int_;
