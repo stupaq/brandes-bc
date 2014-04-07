@@ -389,9 +389,6 @@ namespace brandes {
     template<typename Return, typename Reordering>
       inline Return cont(Context& ctx, Reordering& ord, VirtualList& vlst,
           VertexList& adj, VertexList&) const {
-        // TODO(stupaq) making use of connected components information
-        // might require aligning component's boundaries with warp size
-        // otherwise we might get bank conflicts
         MICROPROF_START(device_wait);
         Accelerator acc = ctx.get();
         cl::CommandQueue& q = acc.queue_;
@@ -405,15 +402,14 @@ namespace brandes {
 
         MICROBENCH_TIMEPOINT(moving_data);
         MICROPROF_START(graph_to_gpu);
-        // TODO(stupaq) do we need to make these writes synchronously?
         cl::Buffer proceed_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(bool));
         cl::Buffer vlst_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vlst));
         cl::Buffer adj_cl(acc.context_, CL_MEM_READ_ONLY, bytes(adj));
         cl::Buffer ds_cl(acc.context_, CL_MEM_READ_WRITE, 2 * sizeof(int) * n);
         cl::Buffer delta_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
         cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
-        q.enqueueWriteBuffer(vlst_cl, true, 0, bytes(vlst), vlst.data());
-        q.enqueueWriteBuffer(adj_cl, true, 0, bytes(adj), adj.data());
+        q.enqueueWriteBuffer(vlst_cl, false, 0, bytes(vlst), vlst.data());
+        q.enqueueWriteBuffer(adj_cl, false, 0, bytes(adj), adj.data());
         MICROPROF_END(graph_to_gpu);
 
         MICROBENCH_TIMEPOINT(starting_kernels);
@@ -458,8 +454,7 @@ namespace brandes {
           int curr_dist = 0;
           do {
             proceed = false;
-            // TODO(stupaq) is it beneficial to merge it with the kernel?
-            q.enqueueWriteBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
+            q.enqueueWriteBuffer(proceed_cl, false, 0, sizeof(bool), &proceed);
             k_fwd.setArg(1, curr_dist++);
             q.enqueueNDRangeKernel(k_fwd, cl::NullRange, n1_global, local);
             q.enqueueReadBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
