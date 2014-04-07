@@ -2,24 +2,22 @@
 
 CXXinclude	+= -I /usr/local/cuda-5.5/include/ -I /opt/cuda/include/
 CXXoptimize	+= -march=native -O3 -funroll-loops -flto -fwhole-program -fuse-linker-plugin
+CXXwarnings	+= -Wall -Wextra -pedantic
 
-CXX     	?= g++ -fmax-errors=5
-CXXFLAGS	+= $(CXXinclude) -Wall -Wextra -pedantic -std=c++0x $(CXXoptimize) $(CXXarchdep)
-LD      	?= $(CXX)
-LDFLAGS 	+= -L /usr/lib64/nvidia
-LDLIBS  	+= -lOpenCL -lstdc++ -lboost_filesystem -lboost_iostreams
+CXX		:= g++ -std=c++0x
+CXXFLAGS	+= $(CXXinclude) $(CXXwarnings) $(CXXoptimize) $(CXXarchdep)
+LDFLAGS		+= -L /usr/lib64/nvidia
+LDLIBS		+= -lOpenCL -lstdc++ -lboost_filesystem -lboost_iostreams
 
-HEADERS 	:= $(wildcard *.h)
+HEADERS		:= $(wildcard *.h)
+SOURCES		:= $(wildcard *.cpp)
+TARGET		:= brandes
 
-brandes: Main
-	ln -sf $< $@
-	@du -sh $<
-
-Main: Main.o
-Main.o: $(HEADERS) Makefile
+$(TARGET): $(SOURCES) $(HEADERS) Makefile
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $< $(LDFLAGS) $(LDLIBS) -o $@
+	@du -sh $@
 
 clean:
-	-rm -rf *.o
-	-rm -rf brandes Main
+	-rm -rf brandes
 
 # vim: set ts=8 sts=8:
