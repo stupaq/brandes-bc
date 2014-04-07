@@ -14,6 +14,7 @@
 #include <vector>
 #include <utility>
 #include <future>
+#include <algorithm>
 
 #include "./MicroBench.h"
 #include "./MyCL.h"
@@ -121,6 +122,24 @@ namespace brandes {
     }
   };
 
+#ifndef NDEBUG
+#define STATS(fmt, ...) fprintf(MICROPROF_STREAM, "STATS:\t\t" fmt, __VA_ARGS__)
+  static inline void stats(const VertexList& ptr, const VertexList& adj, const
+      VertexList& ccs) {
+    SUPPRESS_UNUSED(ptr);
+    SUPPRESS_UNUSED(adj);
+    SUPPRESS_UNUSED(ccs);
+    VertexId lastc = -1, maxcs = 1;
+    for (auto c : ccs) {
+      maxcs = std::max(c - lastc, maxcs);
+      lastc = c;
+    }
+    STATS("biggest component\t%d / %d = %f\n", maxcs, ccs.back(),
+        static_cast<float>(maxcs) / ccs.back());
+  }
+#undef STATS
+#endif  // NDEBUG
+
   template<typename Cont> struct ocsr_create {
     template<typename Return>
       inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj)
@@ -168,6 +187,9 @@ namespace brandes {
 #endif  // NDEBUG
         Permutation ord = { bfsno };
         MICROPROF_END(cc_ordering);
+#ifndef NDEBUG
+        stats(ptr, adj, ccs);
+#endif  // NDEBUG
         CONT_BIND(ctx, ord, queue, ptr, adj, ccs);
       }
   };
@@ -180,6 +202,9 @@ namespace brandes {
         const VertexId n = ptr.size() - 1;
         VertexList ccs = { 0, n };
         MICROPROF_END(cc_ordering);
+#ifndef NDEBUG
+        stats(ptr, adj, ccs);
+#endif  // NDEBUG
         CONT_BIND(ctx, ptr, adj, ccs);
       }
   };
@@ -269,7 +294,6 @@ namespace brandes {
       }
 
 #ifndef NDEBUG
-    private:
     template<typename Reordering>
       static inline void assertions(const Reordering& rord, const VertexList&
           ptr, const VertexList& adj, const VertexList& ccs, const VirtualList&
@@ -486,7 +510,6 @@ namespace brandes {
         return reordered;
       }
 
-    private:
     template<typename Out, typename In>
       static inline Out cast(In v) {
         return static_cast<Out>(v);
