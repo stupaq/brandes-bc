@@ -33,7 +33,7 @@ __kernel void vcsr_init(
     __global float* bc) {
   int my_i = get_global_id(0);
   if (my_i < global_id_range) {
-    bc[my_i] = 0;
+    bc[my_i] = 0.0f;
   }
 }
 
@@ -71,8 +71,8 @@ __kernel void vcsr_forward(
           ds[other_i].dist_ = other_d = curr_dist + 1;
           *proceed = true;
         }
-        if (other_d == curr_dist + 1) {
-          atomic_add(&(ds[other_i].sigma_), ds[my_pm.map_].sigma_);
+        if (other_d == curr_dist + 1 && my_ds.sigma_ != 0.0f) {
+          atomic_add(&(ds[other_i].sigma_), my_ds.sigma_);
         }
       }
     }
@@ -102,14 +102,16 @@ __kernel void vcsr_backward(
     if (ds[my_pm.map_].dist_ == curr_dist - 1) {
       int k = my_pm.ptr_;
       const int k_end = vlst[my_vi + 1].ptr_;
-      float sum = 0;
+      float sum = 0.0f;
       for (; k != k_end; k++) {
         int other_i = adj[k];
         if (ds[other_i].dist_ == curr_dist) {
           sum += delta[other_i];
         }
       }
-      atomic_addf(&delta[my_pm.map_], sum);
+      if (sum != 0.0f) {
+        atomic_addf(&delta[my_pm.map_], sum);
+      }
     }
   }
 }
