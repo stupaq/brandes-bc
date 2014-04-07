@@ -20,7 +20,8 @@ typedef std::chrono::steady_clock MicroBenchClock;
 typedef std::chrono::duration<double, std::milli> MicroProfUnits;
 
 #ifdef MICROPROF_ENABLE
-#define MICROPROF_START(name) MICROBENCH_TIMEPOINT(name ## _start)
+#define MICROPROF_TIMEPOINT(name) MICROBENCH_TIMEPOINT(name)
+#define MICROPROF_START(name) MICROPROF_TIMEPOINT(name ## _start)
 #define MICROPROF_END(name)\
   MICROBENCH_TIMEPOINT(name ## _end);\
   MICROBENCH_REPORT(name ## _start, name ## _end, MICROPROF_STREAM, \
@@ -30,6 +31,7 @@ typedef std::chrono::duration<double, std::milli> MicroProfUnits;
 #define MICROPROF_INFO(...)\
   fprintf(MICROPROF_STREAM, __VA_ARGS__); fflush(MICROPROF_STREAM)
 #else
+#define MICROPROF_TIMEPOINT(name)
 #define MICROPROF_START(name)
 #define MICROPROF_END(name)
 #define MICROPROF_WARN(cond, warn)
