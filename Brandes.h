@@ -129,13 +129,22 @@ namespace brandes {
     SUPPRESS_UNUSED(ptr);
     SUPPRESS_UNUSED(adj);
     SUPPRESS_UNUSED(ccs);
-    VertexId lastc = -1, maxcs = 1;
+    VertexId lastc = 0, maxcs = 0;
     for (auto c : ccs) {
       maxcs = std::max(c - lastc, maxcs);
       lastc = c;
     }
     STATS("biggest component\t%d / %d = %f\n", maxcs, ccs.back(),
         static_cast<float>(maxcs) / ccs.back());
+    VertexId lasta = -2, lowdegcount = 0;
+    for (auto a : ptr) {
+      if (a - lasta < 2) {
+        lowdegcount++;
+      }
+      lasta = a;
+    }
+    STATS("degree 0-1 count\t%d / %d = %f\n", lowdegcount, ccs.back(),
+        static_cast<float>(lowdegcount) / ccs.back());
   }
 #undef STATS
 #endif  // NDEBUG
