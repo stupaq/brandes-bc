@@ -443,8 +443,9 @@ namespace brandes {
           k_sum.setArg(1, source);
           q.enqueueNDRangeKernel(k_sum, cl::NullRange, n_global, local);
 
-          if (source % (n / 24) == 0)
-            MICROPROF_INFO("PROGRESS: %d / %d\n", source, n);
+          if (source % (n / 24) == 0) {
+            MICROPROF_INFO("PROGRESS:\t%d / %d\n", source, n);
+          }
         }
 
         std::vector<float> bc(n);
