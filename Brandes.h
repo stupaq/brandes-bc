@@ -430,10 +430,7 @@ namespace brandes {
         k_fwd.setArg(3, vlst_cl);
         k_fwd.setArg(4, adj_cl);
         k_fwd.setArg(5, ds_cl);
-        cl::Kernel k_interm(acc.program_, "vcsr_interm");
-        k_interm.setArg(0, n);
-        k_interm.setArg(1, ds_cl);
-        k_interm.setArg(2, delta_cl);
+        k_fwd.setArg(6, delta_cl);
         cl::Kernel k_back(acc.program_, "vcsr_backward");
         k_back.setArg(0, n1);
         k_back.setArg(2, vlst_cl);
@@ -460,8 +457,6 @@ namespace brandes {
             q.enqueueReadBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
             q.finish();
           } while (proceed);
-
-          q.enqueueNDRangeKernel(k_interm, cl::NullRange, n_global, local);
 
           while (curr_dist > 1) {
             k_back.setArg(1, --curr_dist);

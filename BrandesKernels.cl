@@ -56,14 +56,16 @@ __kernel void vcsr_forward(
     __global bool* proceed,
     __global struct Virtual* vlst,
     __global int* adj,
-    __global struct DistSigma* ds) {
+    __global struct DistSigma* ds,
+    __global float* delta) {
   int my_vi = get_global_id(0);
   if (my_vi < global_id_range) {
     struct Virtual my_pm = vlst[my_vi];
+    struct Virtual next_pm = vlst[my_vi + 1];
     struct DistSigma my_ds = ds[my_pm.map_];
     if (my_ds.dist_ == curr_dist) {
       int k = my_pm.ptr_;
-      const int k_end = vlst[my_vi + 1].ptr_;
+      const int k_end = next_pm.ptr_;
       for (; k != k_end; k++) {
         int other_i = adj[k];
         int other_d = ds[other_i].dist_;
@@ -75,17 +77,10 @@ __kernel void vcsr_forward(
           atomic_add(&(ds[other_i].sigma_), my_ds.sigma_);
         }
       }
+      if (my_pm.map_ != next_pm.map_) {
+        delta[my_pm.map_] = 1.0f / my_ds.sigma_;
+      }
     }
-  }
-}
-
-__kernel void vcsr_interm(
-    const int global_id_range,
-    __global struct DistSigma* ds,
-    __global float* delta) {
-  int my_i = get_global_id(0);
-  if (my_i < global_id_range) {
-    delta[my_i] = 1.0f / ds[my_i].sigma_;
   }
 }
 
