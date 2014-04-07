@@ -405,7 +405,8 @@ namespace brandes {
         cl::Buffer proceed_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(bool));
         cl::Buffer vlst_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vlst));
         cl::Buffer adj_cl(acc.context_, CL_MEM_READ_ONLY, bytes(adj));
-        cl::Buffer ds_cl(acc.context_, CL_MEM_READ_WRITE, 2 * sizeof(int) * n);
+        cl::Buffer dist_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
+        cl::Buffer sigma_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
         cl::Buffer delta_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
         cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
         q.enqueueWriteBuffer(vlst_cl, false, 0, bytes(vlst), vlst.data());
@@ -423,25 +424,29 @@ namespace brandes {
         /** We can move some arguments setting outside of the loop. */
         cl::Kernel k_source(acc.program_, "vcsr_init_source");
         k_source.setArg(0, n);
-        k_source.setArg(2, ds_cl);
+        k_source.setArg(2, dist_cl);
+        k_source.setArg(3, sigma_cl);
         cl::Kernel k_fwd(acc.program_, "vcsr_forward");
         k_fwd.setArg(0, n1);
         k_fwd.setArg(2, proceed_cl);
         k_fwd.setArg(3, vlst_cl);
         k_fwd.setArg(4, adj_cl);
-        k_fwd.setArg(5, ds_cl);
-        k_fwd.setArg(6, delta_cl);
+        k_fwd.setArg(5, dist_cl);
+        k_fwd.setArg(6, sigma_cl);
+        k_fwd.setArg(7, delta_cl);
         cl::Kernel k_back(acc.program_, "vcsr_backward");
         k_back.setArg(0, n1);
         k_back.setArg(2, vlst_cl);
         k_back.setArg(3, adj_cl);
-        k_back.setArg(4, ds_cl);
-        k_back.setArg(5, delta_cl);
+        k_back.setArg(4, dist_cl);
+        k_back.setArg(5, sigma_cl);
+        k_back.setArg(6, delta_cl);
         cl::Kernel k_sum(acc.program_, "vcsr_sum");
         k_sum.setArg(0, n);
-        k_sum.setArg(2, ds_cl);
-        k_sum.setArg(3, delta_cl);
-        k_sum.setArg(4, bc_cl);
+        k_sum.setArg(2, dist_cl);
+        k_sum.setArg(3, sigma_cl);
+        k_sum.setArg(4, delta_cl);
+        k_sum.setArg(5, bc_cl);
 
         for (int source = 0; source < n; source++) {
           k_source.setArg(1, source);
