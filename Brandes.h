@@ -389,6 +389,16 @@ namespace brandes {
     template<typename Return, typename Reordering>
       inline Return cont(Context& ctx, Reordering& ord, VirtualList& vlst,
           VertexList& adj, VertexList&) const {
+        MICROPROF_START(aos_to_soa);
+        std::vector<int> vmap, vptr;
+        vmap.reserve(vlst.size());
+        vptr.reserve(vlst.size());
+        for (auto v : vlst) {
+          vmap.push_back(v.map_);
+          vptr.push_back(v.ptr_);
+        }
+        MICROPROF_END(aos_to_soa);
+
         MICROPROF_START(device_wait);
         Accelerator acc = ctx.get();
         cl::CommandQueue& q = acc.queue_;
@@ -403,13 +413,15 @@ namespace brandes {
         MICROBENCH_TIMEPOINT(moving_data);
         MICROPROF_START(graph_to_gpu);
         cl::Buffer proceed_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(bool));
-        cl::Buffer vlst_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vlst));
+        cl::Buffer map_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vmap));
+        cl::Buffer ptr_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vptr));
         cl::Buffer adj_cl(acc.context_, CL_MEM_READ_ONLY, bytes(adj));
         cl::Buffer dist_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
         cl::Buffer sigma_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
         cl::Buffer delta_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
         cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
-        q.enqueueWriteBuffer(vlst_cl, false, 0, bytes(vlst), vlst.data());
+        q.enqueueWriteBuffer(map_cl, false, 0, bytes(vmap), vmap.data());
+        q.enqueueWriteBuffer(ptr_cl, false, 0, bytes(vptr), vptr.data());
         q.enqueueWriteBuffer(adj_cl, false, 0, bytes(adj), adj.data());
         MICROPROF_END(graph_to_gpu);
 
@@ -429,17 +441,18 @@ namespace brandes {
         cl::Kernel k_fwd(acc.program_, "vcsr_forward");
         k_fwd.setArg(0, n1);
         k_fwd.setArg(2, proceed_cl);
-        k_fwd.setArg(3, vlst_cl);
-        k_fwd.setArg(4, adj_cl);
-        k_fwd.setArg(5, dist_cl);
-        k_fwd.setArg(6, sigma_cl);
-        k_fwd.setArg(7, delta_cl);
+        k_fwd.setArg(3, map_cl);
+        k_fwd.setArg(4, ptr_cl);
+        k_fwd.setArg(5, adj_cl);
+        k_fwd.setArg(6, dist_cl);
+        k_fwd.setArg(7, sigma_cl);
+        k_fwd.setArg(8, delta_cl);
         cl::Kernel k_back(acc.program_, "vcsr_backward");
         k_back.setArg(0, n1);
-        k_back.setArg(2, vlst_cl);
-        k_back.setArg(3, adj_cl);
-        k_back.setArg(4, dist_cl);
-        k_back.setArg(5, sigma_cl);
+        k_back.setArg(2, map_cl);
+        k_back.setArg(3, ptr_cl);
+        k_back.setArg(4, adj_cl);
+        k_back.setArg(5, dist_cl);
         k_back.setArg(6, delta_cl);
         cl::Kernel k_sum(acc.program_, "vcsr_sum");
         k_sum.setArg(0, n);
