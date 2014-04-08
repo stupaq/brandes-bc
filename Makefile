@@ -1,7 +1,7 @@
 # @author Mateusz Machalica
 
-CXXinclude	+= -I /usr/local/cuda-5.5/include/ -I /opt/cuda/include/
-CXXoptimize	+= -march=native -O3 -funroll-loops -flto -fwhole-program -fuse-linker-plugin
+CXXinclude	+= -I /usr/local/cuda-5.5/include/ -I /opt/cuda/include/ -I /opt/AMDAPP/include/
+CXXoptimize	+= -march=native -O3 -funroll-loops -flto -fwhole-program -fuse-linker-plugin -finline-limit=16777216
 CXXwarnings	+= -Wall -Wextra -pedantic
 
 CXX		:= g++ -std=c++0x
