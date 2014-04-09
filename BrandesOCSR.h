@@ -5,7 +5,7 @@
 #include <cassert>
 #include <algorithm>
 
-#include "./BrandesCSR.h"
+#include "./BrandesDEG1.h"
 
 namespace brandes {
 
