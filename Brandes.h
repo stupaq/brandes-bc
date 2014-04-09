@@ -26,7 +26,11 @@ namespace brandes {
   using mycl::Accelerator;
   using mycl::bytes;
 
-  typedef std::future<Accelerator> Context;
+  struct Context {
+    std::future<Accelerator> dev_future_;
+    const int kMDeg_;
+    const int kWGroup_;
+  };
 
   typedef cl_int VertexId;
   typedef std::vector<VertexId> VertexList;
@@ -124,8 +128,8 @@ namespace brandes {
 
 #ifndef NDEBUG
 #define STATS(fmt, ...) fprintf(MICROPROF_STREAM, "STATS:\t\t" fmt, __VA_ARGS__)
-  static inline void stats(const VertexList& ptr, const VertexList& adj, const
-      VertexList& ccs) {
+  static inline void stats(const Context& ctx, const VertexList& ptr, const
+      VertexList& adj, const VertexList& ccs) {
     SUPPRESS_UNUSED(ptr);
     SUPPRESS_UNUSED(adj);
     SUPPRESS_UNUSED(ccs);
@@ -136,7 +140,7 @@ namespace brandes {
     }
     STATS("biggest component\t%d / %d = %f\n", maxcs, ccs.back(),
         static_cast<float>(maxcs) / ccs.back());
-    const int low_thr = 2, big_thr = 8;
+    const int low_thr = 2, big_thr = ctx.kMDeg_;
     int low_count = 0, big_count = 0;
     VertexId last_p = - (low_thr + big_thr) / 2;
     for (auto p : ptr) {
@@ -205,7 +209,7 @@ namespace brandes {
         Permutation ord = { bfsno };
         MICROPROF_END(cc_ordering);
 #ifndef NDEBUG
-        stats(ptr, adj, ccs);
+        stats(ctx, ptr, adj, ccs);
 #endif  // NDEBUG
         CONT_BIND(ctx, ord, queue, ptr, adj, ccs);
       }
@@ -220,23 +224,24 @@ namespace brandes {
         VertexList ccs = { 0, n };
         MICROPROF_END(cc_ordering);
 #ifndef NDEBUG
-        stats(ptr, adj, ccs);
+        stats(ctx, ptr, adj, ccs);
 #endif  // NDEBUG
         CONT_BIND(ctx, ptr, adj, ccs);
       }
   };
 
-  template<int kMDeg, typename Cont> struct vcsr_create {
+  template<typename Cont> struct vcsr_create {
     template<typename Return, typename Reordering>
       inline Return cont(Context& ctx, Reordering& ord, const VertexList&
           queue, const VertexList& ptr, const VertexList& adj, const
           VertexList& ccs) const
       {
+        MICROPROF_INFO("CONFIGURATION:\tvirtualized deg\t%d\n", ctx.kMDeg_);
         MICROPROF_START(virtualization);
         VirtualList vlst;
         VertexList vccs;
         vccs.reserve(ccs.size());
-        const size_t kN1Estimate = ptr.size() + adj.size() / kMDeg;
+        const size_t kN1Estimate = ptr.size() + adj.size() / ctx.kMDeg_;
         vlst.reserve(kN1Estimate);
         VertexList oadj(adj.size());
         auto itoadj0 = oadj.begin(),
@@ -249,7 +254,7 @@ namespace brandes {
             vlst.push_back(Virtual(itoadj - itoadj0, aggr));
           } else {
             for (int i = 0; next != last; i++, itoadj++, next++) {
-              if (i % kMDeg == 0) {
+              if (i % ctx.kMDeg_ == 0) {
                 vlst.push_back(Virtual(itoadj - itoadj0, aggr));
               }
               *itoadj = ord[*next];
@@ -268,7 +273,7 @@ namespace brandes {
         MICROPROF_WARN(kN1Estimate < vlst.capacity(),
             "vlst estimate too small");
 #ifndef NDEBUG
-        assertions(queue, ptr, adj, ccs, vlst, oadj, vccs);
+        assertions(ctx, queue, ptr, adj, ccs, vlst, oadj, vccs);
 #endif  // NDEBUG
         MICROPROF_END(virtualization);
         CONT_BIND(ctx, ord, vlst, oadj, vccs);
@@ -282,7 +287,7 @@ namespace brandes {
         VirtualList vlst;
         VertexList vccs;
         vccs.reserve(ccs.size());
-        const size_t kN1Estimate = ptr.size() + adj.size() / kMDeg;
+        const size_t kN1Estimate = ptr.size() + adj.size() / ctx.kMDeg_;
         vlst.reserve(kN1Estimate);
         auto itccs = ccs.begin();
         for (VertexId orig = 0; orig < n; orig++) {
@@ -295,7 +300,7 @@ namespace brandes {
           }
           do {
             vlst.push_back(Virtual(first, orig));
-            first += kMDeg;
+            first += ctx.kMDeg_;
           } while (first < last);
         }
         vccs.push_back(vlst.size());
@@ -304,7 +309,7 @@ namespace brandes {
             "vlst estimate too small");
         Identity id;
 #ifndef NDEBUG
-        assertions(id, ptr, adj, ccs, vlst, adj, vccs);
+        assertions(ctx, id, ptr, adj, ccs, vlst, adj, vccs);
 #endif  // NDEBUG
         MICROPROF_END(virtualization);
         CONT_BIND(ctx, id, vlst, adj, vccs);
@@ -312,9 +317,10 @@ namespace brandes {
 
 #ifndef NDEBUG
     template<typename Reordering>
-      static inline void assertions(const Reordering& rord, const VertexList&
-          ptr, const VertexList& adj, const VertexList& ccs, const VirtualList&
-          vlst, const VertexList& oadj, const VertexList& vccs) {
+      static inline void assertions(const Context& ctx, const Reordering& rord,
+          const VertexList& ptr, const VertexList& adj, const VertexList& ccs,
+          const VirtualList& vlst, const VertexList& oadj, const VertexList&
+          vccs) {
         const VertexId n1 = vlst.size() - 1;
         assert(static_cast<size_t>(vlst.back().ptr_) == adj.size());
         for (VertexId virt = 0; virt < n1; virt++) {
@@ -322,7 +328,7 @@ namespace brandes {
           assert(vlst[virt + 1].map_ <= vlst[virt].map_ + 1);
           VertexId orig = rord[vlst[virt].map_];
           assert(vlst[virt + 1].ptr_ >= vlst[virt].ptr_);
-          assert(vlst[virt + 1].ptr_ - vlst[virt].ptr_ <= kMDeg);
+          assert(vlst[virt + 1].ptr_ - vlst[virt].ptr_ <= ctx.kMDeg_);
           assert(vlst[virt + 1].ptr_ - vlst[virt].ptr_
               <= ptr[orig + 1] - ptr[orig]);
           if (ptr[orig + 1] != ptr[orig]) {
@@ -393,7 +399,7 @@ namespace brandes {
       }
   };
 
-  template<int kWGroup, typename Cont> struct betweenness {
+  template<typename Cont> struct betweenness {
     template<typename Return, typename Reordering>
       inline Return cont(Context& ctx, Reordering& ord, VirtualList& vlst,
           VertexList& adj, VertexList&) const {
@@ -408,15 +414,16 @@ namespace brandes {
         MICROPROF_END(aos_to_soa);
 
         MICROPROF_START(device_wait);
-        Accelerator acc = ctx.get();
+        Accelerator acc = ctx.dev_future_.get();
         cl::CommandQueue& q = acc.queue_;
         MICROPROF_END(device_wait);
 
-        cl::NDRange local(kWGroup);
+        cl::NDRange local(ctx.kWGroup_);
         const int n = vlst.back().map_;
-        cl::NDRange n_global(ROUND_UP(n, kWGroup));
+        cl::NDRange n_global(ROUND_UP(n, ctx.kWGroup_));
         const int n1 = vlst.size();
-        cl::NDRange n1_global(ROUND_UP(n1, kWGroup));
+        cl::NDRange n1_global(ROUND_UP(n1, ctx.kWGroup_));
+        MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n", ctx.kWGroup_);
 
         MICROBENCH_TIMEPOINT(moving_data);
         MICROPROF_START(graph_to_gpu);

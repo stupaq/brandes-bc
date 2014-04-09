@@ -26,11 +26,13 @@
   csr_create<ocsr_create<vcsr_pass<betweenness<postprocess>>>>
 #elif ALGORITHM == 0x101
 #define ALGORITHM_PIPE\
-  csr_create<ocsr_pass<vcsr_create<16, betweenness<128, postprocess>>>>
+  csr_create<ocsr_pass<vcsr_create<betweenness<postprocess>>>>
 #elif ALGORITHM == 0x111 || ALGORITHM == 0
 #define ALGORITHM_PIPE\
-  csr_create<ocsr_create<vcsr_create<16, betweenness<128, postprocess>>>>
+  csr_create<ocsr_create<vcsr_create<betweenness<postprocess>>>>
 #endif
+
+#include <boost/lexical_cast.hpp>
 
 #include <cstdio>
 #include <cassert>
@@ -59,9 +61,13 @@ static inline void generic_write(Result& res, const char* file_path) {
 
 int main(int argc, const char* argv[]) {
   MICROPROF_START(main_total);
-  assert(argc == 3); SUPPRESS_UNUSED(argc);
+  assert(argc > 2); SUPPRESS_UNUSED(argc);
 
-  Context ctx = std::async(std::launch::async, mycl::init_device);
+  Context ctx = {
+    std::async(std::launch::async, mycl::init_device),
+    argc > 3 ? boost::lexical_cast<int>(argv[3]) : 16,
+    argc > 4 ? boost::lexical_cast<int>(argv[4]) : 128,
+  };
 #ifdef MYCL_ERROR_CHECKING
   try {
 #endif
