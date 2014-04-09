@@ -136,15 +136,23 @@ namespace brandes {
     }
     STATS("biggest component\t%d / %d = %f\n", maxcs, ccs.back(),
         static_cast<float>(maxcs) / ccs.back());
-    VertexId lasta = -2, lowdegcount = 0;
-    for (auto a : ptr) {
-      if (a - lasta < 2) {
-        lowdegcount++;
+    const int low_thr = 2, big_thr = 8;
+    int low_count = 0, big_count = 0;
+    VertexId last_p = - (low_thr + big_thr) / 2;
+    for (auto p : ptr) {
+      int deg = p - last_p;
+      if (deg < low_thr) {
+        low_count++;
       }
-      lasta = a;
+      if (deg > big_thr) {
+        big_count++;
+      }
+      last_p = p;
     }
-    STATS("degree 0-1 count\t%d / %d = %f\n", lowdegcount, ccs.back(),
-        static_cast<float>(lowdegcount) / ccs.back());
+    STATS("degree 0-1 count\t%d / %d = %f\n", low_count, ccs.back(),
+        static_cast<float>(low_count) / ccs.back());
+    STATS("high degree count\t%d / %d = %f\n", big_count, ccs.back(),
+        static_cast<float>(big_count) / ccs.back());
   }
 #undef STATS
 #endif  // NDEBUG
