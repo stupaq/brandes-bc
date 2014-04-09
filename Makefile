@@ -26,6 +26,9 @@ clean:
 	-rm -rf brandes
 
 lint:
-	$(CXXlint) $(SOURCES) $(HEADERS)
+	@$(CXXlint) $(SOURCES) $(HEADERS)
+
+todo:
+	@grep -nrIe "\(TODO\|FIXME\)" --exclude-dir=.git --exclude=Makefile
 
 # vim: set ts=8 sts=8:

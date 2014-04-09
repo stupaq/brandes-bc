@@ -1,14 +1,14 @@
 /** @author Mateusz Machalica */
 
 #if   OPTIMIZE == 3
-#pragma message "Optimized build - no error checking."
+#pragma message "Optimized build, no error checking."
 #define NDEBUG
 #elif OPTIMIZE == 2
-#pragma message "Partially optimized build - rare error checking."
+#pragma message "Partially optimized build, device error checking."
 #define NDEBUG
 #define MYCL_ERROR_CHECKING
 #elif OPTIMIZE == 1
-#pragma message "Partially optimized build for microbenchmarks."
+#pragma message "Microbenchmarks optimized build."
 #define NDEBUG
 #define MICROPROF_ENABLE
 #define MYCL_ERROR_CHECKING
@@ -20,7 +20,7 @@
 
 // FIXME(stupaq) other options?
 #define ALGORITHM_PIPE\
-  csr_create<ocsr_create<statistics<vcsr_create<betweenness<postprocess>>>>>
+  csr_create<ocsr_create<statistics<deg1_reduce<vcsr_create<betweenness<postprocess>>>>>>  // NOLINT(whitespace/line_length)
 
 #include <boost/lexical_cast.hpp>
 

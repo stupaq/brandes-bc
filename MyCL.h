@@ -11,8 +11,10 @@
 
 #include "./MicroBench.h"
 
-#define MYCL_OPTIONS\
-  "-Werror -cl-single-precision-constant -cl-finite-math-only"
+#define MYCL_OPTIONS "-Werror     "\
+  "-cl-single-precision-constant  "\
+  "-cl-finite-math-only           "\
+  "-cl-no-signed-zeros            "
 #define MYCL_STREAM stdout
 #define MYCL_BUFFER_FOREACH(q, buf_cl, n, Elem, el)\
   for (Elem el : mycl_debug::read<Elem>(q, buf_cl, n))

@@ -9,9 +9,10 @@
 
 namespace brandes {
 
-  template<typename Cont> struct deg1_reduct {
-    template<typename Return>
-      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj) const
+  template<typename Cont> struct deg1_reduce {
+    template<typename Return, typename Reordering>
+      inline Return cont(Context& ctx, Reordering& ord, VertexList& ptr,
+          VertexList& adj, VertexList& ccs) const
       {
         const VertexId n = ptr.size() - 1;
         MICROPROF_START(deg1_reduction);
@@ -50,15 +51,7 @@ namespace brandes {
           }
         }
         MICROPROF_END(deg1_reduction);
-        return CONT_BIND(ctx, ptr, adj);
-      }
-  };
-
-  template<typename Cont> struct deg1_pass {
-    template<typename Return>
-      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj) const
-      {
-        return CONT_BIND(ctx, ptr, adj);
+        return CONT_BIND(ctx, ord, ptr, adj, ccs);
       }
   };
 
