@@ -1,6 +1,6 @@
 # @author Mateusz Machalica
 
-CXXinclude	+= -I /usr/local/cuda-5.5/include/ -I /opt/cuda/include/ -I /opt/AMDAPP/include/
+CXXinclude	+= -isystem /usr/local/cuda-5.5/include/ -isystem /opt/cuda/include/ -isystem /opt/AMDAPP/include/
 CXXoptimize	+= -march=native -O3 -funroll-loops -flto -fwhole-program -fuse-linker-plugin -finline-limit=16777216
 CXXwarnings	+= -Wall -Wextra -pedantic
 
