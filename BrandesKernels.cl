@@ -44,7 +44,9 @@ __kernel void vcsr_forward(
     const int curr_dist,
     __global bool* proceed,
     __global int* vmap,
-    __global int* vptr,
+    __global int* voff,
+    __global int* cnt,
+    __global int* ptr,
     __global int* adj,
     __global int* dist,
     __global int* sigma,
@@ -52,13 +54,14 @@ __kernel void vcsr_forward(
   const int my_vi = get_global_id(0);
   if (my_vi < global_id_range) {
     const int my_map = vmap[my_vi];
-    const int next_map = vmap[my_vi + 1];
-    int my_ptr = vptr[my_vi];
-    const int next_ptr = vptr[my_vi + 1];
     const int my_dist = dist[my_map];
     if (my_dist == curr_dist) {
+      const int my_off = voff[my_vi];
+      int my_ptr = my_off + ptr[my_map];
+      const int next_ptr = ptr[my_map + 1];
+      const int my_cnt = cnt[my_map];
       const int my_sigma = sigma[my_map];
-      for (; my_ptr != next_ptr; my_ptr++) {
+      for (; my_ptr < next_ptr; my_ptr += my_cnt) {
         const int other_i = adj[my_ptr];
         int other_d = dist[other_i];
         if (other_d == -1) {
@@ -69,7 +72,7 @@ __kernel void vcsr_forward(
           atomic_add(&sigma[other_i], my_sigma);
         }
       }
-      if (my_map != next_map) {
+      if (my_off == 0) {
         delta[my_map] = 1.0f / my_sigma;
       }
     }
@@ -80,18 +83,21 @@ __kernel void vcsr_backward(
     const int global_id_range,
     const int curr_dist,
     __global int* vmap,
-    __global int* vptr,
+    __global int* voff,
+    __global int* cnt,
+    __global int* ptr,
     __global int* adj,
     __global int* dist,
     __global float* delta) {
   const int my_vi = get_global_id(0);
   if (my_vi < global_id_range) {
     const int my_map = vmap[my_vi];
-    int my_ptr = vptr[my_vi];
-    const int next_ptr = vptr[my_vi + 1];
     if (dist[my_map] == curr_dist - 1) {
       float sum = 0.0f;
-      for (; my_ptr != next_ptr; my_ptr++) {
+      int my_ptr = voff[my_vi] + ptr[my_map];
+      const int next_ptr = ptr[my_map + 1];
+      const int my_cnt = cnt[my_map];
+      for (; my_ptr < next_ptr; my_ptr += my_cnt) {
         const int other_i = adj[my_ptr];
         if (dist[other_i] == curr_dist) {
           sum += delta[other_i];

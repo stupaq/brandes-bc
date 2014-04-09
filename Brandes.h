@@ -403,15 +403,26 @@ namespace brandes {
     template<typename Return, typename Reordering>
       inline Return cont(Context& ctx, Reordering& ord, VirtualList& vlst,
           VertexList& adj, VertexList&) const {
-        MICROPROF_START(aos_to_soa);
-        std::vector<int> vmap, vptr;
+        MICROPROF_START(striding);
+        std::vector<int> vmap, voff, cnt, ptr;
         vmap.reserve(vlst.size());
-        vptr.reserve(vlst.size());
+        cnt.reserve(vlst.back().map_ + 1);
+        ptr.reserve(vlst.back().map_ + 1);
+        VertexId last_map = -1, offset = 0;
         for (auto v : vlst) {
+          if (v.map_ != last_map) {
+            if (last_map >= 0) {
+              cnt.push_back(offset);
+            }
+            ptr.push_back(v.ptr_);
+            offset = 0;
+          }
           vmap.push_back(v.map_);
-          vptr.push_back(v.ptr_);
+          voff.push_back(offset++);
+          last_map = v.map_;
         }
-        MICROPROF_END(aos_to_soa);
+        cnt.push_back(offset);
+        MICROPROF_END(striding);
 
         MICROPROF_START(device_wait);
         Accelerator acc = ctx.dev_future_.get();
@@ -428,15 +439,19 @@ namespace brandes {
         MICROBENCH_TIMEPOINT(moving_data);
         MICROPROF_START(graph_to_gpu);
         cl::Buffer proceed_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(bool));
-        cl::Buffer map_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vmap));
-        cl::Buffer ptr_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vptr));
+        cl::Buffer vmap_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vmap));
+        cl::Buffer voff_cl(acc.context_, CL_MEM_READ_ONLY, bytes(voff));
+        cl::Buffer cnt_cl(acc.context_, CL_MEM_READ_ONLY, bytes(cnt));
+        cl::Buffer ptr_cl(acc.context_, CL_MEM_READ_ONLY, bytes(ptr));
         cl::Buffer adj_cl(acc.context_, CL_MEM_READ_ONLY, bytes(adj));
         cl::Buffer dist_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
         cl::Buffer sigma_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
         cl::Buffer delta_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
         cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
-        q.enqueueWriteBuffer(map_cl, false, 0, bytes(vmap), vmap.data());
-        q.enqueueWriteBuffer(ptr_cl, false, 0, bytes(vptr), vptr.data());
+        q.enqueueWriteBuffer(vmap_cl, false, 0, bytes(vmap), vmap.data());
+        q.enqueueWriteBuffer(voff_cl, false, 0, bytes(voff), voff.data());
+        q.enqueueWriteBuffer(cnt_cl, false, 0, bytes(cnt), cnt.data());
+        q.enqueueWriteBuffer(ptr_cl, false, 0, bytes(ptr), ptr.data());
         q.enqueueWriteBuffer(adj_cl, false, 0, bytes(adj), adj.data());
         MICROPROF_END(graph_to_gpu);
 
@@ -456,19 +471,23 @@ namespace brandes {
         cl::Kernel k_fwd(acc.program_, "vcsr_forward");
         k_fwd.setArg(0, n1);
         k_fwd.setArg(2, proceed_cl);
-        k_fwd.setArg(3, map_cl);
-        k_fwd.setArg(4, ptr_cl);
-        k_fwd.setArg(5, adj_cl);
-        k_fwd.setArg(6, dist_cl);
-        k_fwd.setArg(7, sigma_cl);
-        k_fwd.setArg(8, delta_cl);
+        k_fwd.setArg(3, vmap_cl);
+        k_fwd.setArg(4, voff_cl);
+        k_fwd.setArg(5, cnt_cl);
+        k_fwd.setArg(6, ptr_cl);
+        k_fwd.setArg(7, adj_cl);
+        k_fwd.setArg(8, dist_cl);
+        k_fwd.setArg(9, sigma_cl);
+        k_fwd.setArg(10, delta_cl);
         cl::Kernel k_back(acc.program_, "vcsr_backward");
         k_back.setArg(0, n1);
-        k_back.setArg(2, map_cl);
-        k_back.setArg(3, ptr_cl);
-        k_back.setArg(4, adj_cl);
-        k_back.setArg(5, dist_cl);
-        k_back.setArg(6, delta_cl);
+        k_back.setArg(2, vmap_cl);
+        k_back.setArg(3, voff_cl);
+        k_back.setArg(4, cnt_cl);
+        k_back.setArg(5, ptr_cl);
+        k_back.setArg(6, adj_cl);
+        k_back.setArg(7, dist_cl);
+        k_back.setArg(8, delta_cl);
         cl::Kernel k_sum(acc.program_, "vcsr_sum");
         k_sum.setArg(0, n);
         k_sum.setArg(2, dist_cl);
