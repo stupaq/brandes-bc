@@ -11,6 +11,7 @@
 
 #include "./MicroBench.h"
 
+#define MYCL_OPTIONS "-Werror -cl-single-precision-constant -cl-finite-math-only"
 #define MYCL_STREAM stdout
 #define MYCL_BUFFER_FOREACH(q, buf_cl, n, Elem, el)\
   for (Elem el : mycl_debug::read<Elem>(q, buf_cl, n))
@@ -32,14 +33,14 @@ namespace mycl {
     cl::Program program = cl::Program(context, source);
 #ifdef MYCL_ERROR_CHECKING
     try {
-      program.build(devices);
+      program.build(devices, MYCL_OPTIONS);
     } catch (...) {
       fprintf(MYCL_STREAM, "OpenCL program build log:\n%s\n",
           program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]).c_str());
       throw;
     }
 #else
-    program.build(devices);
+    program.build(devices, MYCL_OPTIONS);
 #endif
     MICROPROF_END(build_program);
     return program;
