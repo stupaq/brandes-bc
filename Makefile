@@ -3,6 +3,7 @@
 CXXinclude	+= -isystem /usr/local/cuda-5.5/include/ -isystem /opt/cuda/include/ -isystem /opt/AMDAPP/include/
 CXXoptimize	+= -march=native -O3 -funroll-loops -flto -fwhole-program -fuse-linker-plugin -finline-limit=16777216
 CXXwarnings	+= -Wall -Wextra -pedantic
+CXXlint		?= cpplint --filter=-legal/copyright,-whitespace/braces,-whitespace/newline,-runtime/references
 
 ifneq (,$(wildcard /usr/bin/g++-4.8))
 CXX		:= g++-4.8 -std=c++11
@@ -23,5 +24,8 @@ $(TARGET): $(SOURCES) $(HEADERS) Makefile
 
 clean:
 	-rm -rf brandes
+
+lint:
+	$(CXXlint) $(SOURCES) $(HEADERS)
 
 # vim: set ts=8 sts=8:

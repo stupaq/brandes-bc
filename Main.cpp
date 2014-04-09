@@ -18,19 +18,11 @@
 #define MYCL_ERROR_CHECKING
 #endif
 
-#if   ALGORITHM == 0x100
-#define ALGORITHM_PIPE\
-  csr_create<ocsr_pass<vcsr_pass<betweenness<postprocess>>>>
-#elif ALGORITHM == 0x110
-#define ALGORITHM_PIPE\
-  csr_create<ocsr_create<vcsr_pass<betweenness<postprocess>>>>
-#elif ALGORITHM == 0x101
-#define ALGORITHM_PIPE\
-  csr_create<ocsr_pass<vcsr_create<betweenness<postprocess>>>>
-#elif ALGORITHM == 0x111 || ALGORITHM == 0
+// FIXME(stupaq) other options?
 #define ALGORITHM_PIPE\
   csr_create<ocsr_create<vcsr_create<betweenness<postprocess>>>>
-#endif
+// FIXME(stupaq) for graph reductions:
+// csr_reduct<ocsr_create<vcsr_create<betweenness<postprocess>>>>>
 
 #include <boost/lexical_cast.hpp>
 
@@ -41,11 +33,7 @@
 #include <future>
 #include <vector>
 
-#include "./MicroBench.h"
-#include "./MyCL.h"
 #include "./Brandes.h"
-
-using namespace brandes;
 
 template<typename Result>
 static inline void generic_write(Result& res, const char* file_path) {
@@ -60,6 +48,7 @@ static inline void generic_write(Result& res, const char* file_path) {
 }
 
 int main(int argc, const char* argv[]) {
+  using namespace brandes;  // NOLINT(build/namespaces)
   MICROPROF_START(main_total);
   assert(argc > 2); SUPPRESS_UNUSED(argc);
 
