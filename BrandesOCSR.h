@@ -5,52 +5,17 @@
 #include <cassert>
 #include <algorithm>
 
-#include "./BrandesDEG1.h"
+#include "./BrandesCSR.h"
 
 namespace brandes {
-
-#ifndef NDEBUG
-#define STATS(fmt, ...) fprintf(MICROPROF_STREAM, "STATS:\t\t" fmt, __VA_ARGS__)
-  static inline void stats(const Context& ctx, const VertexList& ptr, const
-      VertexList& adj, const VertexList& ccs) {
-    SUPPRESS_UNUSED(adj);
-    VertexId lastc = 0, maxcs = 0;
-    for (auto c : ccs) {
-      maxcs = std::max(c - lastc, maxcs);
-      lastc = c;
-    }
-    STATS("biggest component\t%d / %d = %f\n", maxcs, ccs.back(),
-        static_cast<float>(maxcs) / ccs.back());
-    const int low_thr = 2, big_thr = ctx.kMDeg_;
-    int low_count = 0, big_count = 0;
-    VertexId last_p = - (low_thr + big_thr) / 2;
-    for (auto p : ptr) {
-      int deg = p - last_p;
-      if (deg < low_thr) {
-        low_count++;
-      }
-      if (deg > big_thr) {
-        big_count++;
-      }
-      last_p = p;
-    }
-    STATS("degree 0-1 count\t%d / %d = %f\n", low_count, ccs.back(),
-        static_cast<float>(low_count) / ccs.back());
-    STATS("high degree count\t%d / %d = %f\n", big_count, ccs.back(),
-        static_cast<float>(big_count) / ccs.back());
-  }
-#undef STATS
-#endif  // NDEBUG
 
   template<typename Cont> struct ocsr_create {
     template<typename Return>
       inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj)
       const {
-        MICROPROF_START(cc_ordering);
+        MICROPROF_START(bfs_ordering);
         const VertexId n = ptr.size() - 1;
-        VertexList bfsno(n, -1);
-        VertexList queue(n);
-        VertexList ccs;
+        VertexList bfsno(n, -1), queue(n), ccs;
         auto qfront = queue.begin(), qback = queue.begin();
         VertexId bfsi = 0;
         for (VertexId root = 0; root < n; root++) {
@@ -87,11 +52,35 @@ namespace brandes {
         assert(std::is_sorted(ccs.begin(), ccs.end()));
         assert(ccs.back() == n);
 #endif  // NDEBUG
-        MICROPROF_END(cc_ordering);
+        VertexList optr(ptr.size()), oadj(adj.size());
+        auto itoadj0 = oadj.begin(),
+             itoadj = itoadj0,
+             itoptr = optr.begin();
+        for (auto curr : queue) {
+          *itoptr++ = itoadj - itoadj0;
+          auto next = adj.begin() + ptr[curr],
+               last = adj.begin() + ptr[curr + 1];
+          while (next != last) {
+            *itoadj++ = bfsno[*next++];
+          }
+        }
+        *itoptr = itoadj - itoadj0;
 #ifndef NDEBUG
-        stats(ctx, ptr, adj, ccs);
+        assert(static_cast<size_t>(*itoptr) == adj.size());
+        assert(itoptr + 1 == optr.end());
+        for (VertexId orig = 0; orig < n; orig++) {
+          VertexId ordv = bfsno[orig];
+          assert(optr[ordv + 1] - optr[ordv] == ptr[orig + 1] - ptr[orig]);
+          auto next = adj.begin() + ptr[orig],
+               last = adj.begin() + ptr[orig + 1];
+          auto itoadj = oadj.begin() + optr[ordv];
+          while (next != last) {
+            assert(queue[*itoadj++] == *next++);
+          }
+        }
 #endif  // NDEBUG
-        return CONT_BIND(ctx, bfsno, queue, ptr, adj, ccs);
+        MICROPROF_END(bfs_ordering);
+        return CONT_BIND(ctx, bfsno, optr, oadj, ccs);
       }
   };
 
@@ -99,14 +88,12 @@ namespace brandes {
     template<typename Return>
       inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj)
       const {
-        MICROPROF_START(cc_ordering);
+        MICROPROF_START(bfs_ordering);
         const VertexId n = ptr.size() - 1;
         VertexList ccs = { 0, n };
-        MICROPROF_END(cc_ordering);
-#ifndef NDEBUG
-        stats(ctx, ptr, adj, ccs);
-#endif  // NDEBUG
-        return CONT_BIND(ctx, ptr, adj, ccs);
+        Identity id;
+        MICROPROF_END(bfs_ordering);
+        return CONT_BIND(ctx, id, ptr, adj, ccs);
       }
   };
 

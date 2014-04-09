@@ -19,13 +19,8 @@
 #endif
 
 // FIXME(stupaq) other options?
-#if 1
 #define ALGORITHM_PIPE\
-  csr_create<deg1_pass<ocsr_create<vcsr_create<betweenness<postprocess>>>>>
-#else
-#define ALGORITHM_PIPE\
-  csr_create<deg1_reduct<ocsr_create<vcsr_create<betweenness<postprocess>>>>>
-#endif
+  csr_create<ocsr_create<statistics<vcsr_create<betweenness<postprocess>>>>>
 
 #include <boost/lexical_cast.hpp>
 

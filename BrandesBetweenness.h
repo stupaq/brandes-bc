@@ -8,54 +8,31 @@
 
 #include "./BrandesVCSR.h"
 
-#define ROUND_UP(value, factor) (value + factor - 1 - (value - 1) % factor)
-
 namespace brandes {
   using mycl::bytes;
 
   template<typename Cont> struct betweenness {
     template<typename Return, typename Reordering>
-      inline Return cont(Context& ctx, Reordering& ord, VirtualList& vlst,
-          VertexList& adj, VertexList&) const {
-        MICROPROF_START(striding);
-        std::vector<int> vmap, voff, cnt, ptr;
-        vmap.reserve(vlst.size());
-        cnt.reserve(vlst.back().map_ + 1);
-        ptr.reserve(vlst.back().map_ + 1);
-        VertexId last_map = -1, offset = 0;
-        for (auto v : vlst) {
-          if (v.map_ != last_map) {
-            if (last_map >= 0) {
-              cnt.push_back(offset);
-            }
-            ptr.push_back(v.ptr_);
-            offset = 0;
-          }
-          vmap.push_back(v.map_);
-          voff.push_back(offset++);
-          last_map = v.map_;
-        }
-        cnt.push_back(offset);
-        MICROPROF_END(striding);
-
+      inline Return cont(Context& ctx, Reordering& ord, VertexList& ptr,
+          VertexList& adj, VertexList& vmap, VertexList& voff, VertexList&)
+      const {
+        MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n", ctx.kWGroup_);
         MICROPROF_START(device_wait);
         Accelerator acc = ctx.dev_future_.get();
         cl::CommandQueue& q = acc.queue_;
         MICROPROF_END(device_wait);
 
         cl::NDRange local(ctx.kWGroup_);
-        const int n = vlst.back().map_;
-        cl::NDRange n_global(ROUND_UP(n, ctx.kWGroup_));
-        const int n1 = vlst.size();
-        cl::NDRange n1_global(ROUND_UP(n1, ctx.kWGroup_));
-        MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n", ctx.kWGroup_);
+        const int n = ptr.size() - 1;
+        cl::NDRange n_global(round_up(n, ctx.kWGroup_));
+        const int n1 = vmap.size();
+        cl::NDRange n1_global(round_up(n1, ctx.kWGroup_));
 
         MICROBENCH_TIMEPOINT(moving_data);
         MICROPROF_START(graph_to_gpu);
         cl::Buffer proceed_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(bool));
         cl::Buffer vmap_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vmap));
         cl::Buffer voff_cl(acc.context_, CL_MEM_READ_ONLY, bytes(voff));
-        cl::Buffer cnt_cl(acc.context_, CL_MEM_READ_ONLY, bytes(cnt));
         cl::Buffer ptr_cl(acc.context_, CL_MEM_READ_ONLY, bytes(ptr));
         cl::Buffer adj_cl(acc.context_, CL_MEM_READ_ONLY, bytes(adj));
         cl::Buffer dist_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
@@ -64,7 +41,6 @@ namespace brandes {
         cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
         q.enqueueWriteBuffer(vmap_cl, false, 0, bytes(vmap), vmap.data());
         q.enqueueWriteBuffer(voff_cl, false, 0, bytes(voff), voff.data());
-        q.enqueueWriteBuffer(cnt_cl, false, 0, bytes(cnt), cnt.data());
         q.enqueueWriteBuffer(ptr_cl, false, 0, bytes(ptr), ptr.data());
         q.enqueueWriteBuffer(adj_cl, false, 0, bytes(adj), adj.data());
         MICROPROF_END(graph_to_gpu);
@@ -87,7 +63,7 @@ namespace brandes {
         k_fwd.setArg(2, proceed_cl);
         k_fwd.setArg(3, vmap_cl);
         k_fwd.setArg(4, voff_cl);
-        k_fwd.setArg(5, cnt_cl);
+        k_fwd.setArg(5, static_cast<int>(ctx.kMDeg_));
         k_fwd.setArg(6, ptr_cl);
         k_fwd.setArg(7, adj_cl);
         k_fwd.setArg(8, dist_cl);
@@ -97,7 +73,7 @@ namespace brandes {
         k_back.setArg(0, n1);
         k_back.setArg(2, vmap_cl);
         k_back.setArg(3, voff_cl);
-        k_back.setArg(4, cnt_cl);
+        k_back.setArg(4, static_cast<int>(ctx.kMDeg_));
         k_back.setArg(5, ptr_cl);
         k_back.setArg(6, adj_cl);
         k_back.setArg(7, dist_cl);
@@ -160,7 +136,5 @@ namespace brandes {
   };
 
 }  // namespace brandes
-
-#undef ROUND_UP
 
 #endif  // BRANDESBETWEENNESS_H_
