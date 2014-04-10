@@ -73,6 +73,8 @@ namespace mycl {
     acc.context_ = nvidia_context();
     VECTOR_CLASS<cl::Device> devices =
       acc.context_.getInfo<CL_CONTEXT_DEVICES>();
+    MICROPROF_WARN(devices.size() != 1,
+        "More than one device on choosen platform.");
     acc.queue_ = cl::CommandQueue(acc.context_, devices[0]);
     acc.program_ = build_program(acc.context_, devices,
         "BrandesKernels.cl");
