@@ -16,17 +16,18 @@ namespace brandes {
       inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj,
           std::vector<int> weight, VertexList& vmap, VertexList& voff,
           VertexList&) const {
-        MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n", ctx.kWGroup_);
+        MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n",
+            1 << ctx.kWGroupLog2_);
         MICROPROF_START(device_wait);
         Accelerator acc = ctx.dev_future_.get();
         cl::CommandQueue& q = acc.queue_;
         MICROPROF_END(device_wait);
 
-        cl::NDRange local(ctx.kWGroup_);
+        cl::NDRange local(1 << ctx.kWGroupLog2_);
         const VertexId n = ptr.size() - 1;
-        cl::NDRange n_global(round_up(n, ctx.kWGroup_));
+        cl::NDRange n_global(round_up(n, ctx.kWGroupLog2_));
         const VertexId n1 = vmap.size();
-        cl::NDRange n1_global(round_up(n1, ctx.kWGroup_));
+        cl::NDRange n1_global(round_up(n1, ctx.kWGroupLog2_));
 
         MICROBENCH_TIMEPOINT(moving_data);
         MICROPROF_START(graph_to_gpu);
@@ -65,7 +66,7 @@ namespace brandes {
         k_fwd.setArg(2, proceed_cl);
         k_fwd.setArg(3, vmap_cl);
         k_fwd.setArg(4, voff_cl);
-        k_fwd.setArg(5, static_cast<int>(ctx.kMDeg_));
+        k_fwd.setArg(5, ctx.kMDegLog2_);
         k_fwd.setArg(6, ptr_cl);
         k_fwd.setArg(7, adj_cl);
         k_fwd.setArg(8, weight_cl);
@@ -76,7 +77,7 @@ namespace brandes {
         k_back.setArg(0, n1);
         k_back.setArg(2, vmap_cl);
         k_back.setArg(3, voff_cl);
-        k_back.setArg(4, static_cast<int>(ctx.kMDeg_));
+        k_back.setArg(4, ctx.kMDegLog2_);
         k_back.setArg(5, ptr_cl);
         k_back.setArg(6, adj_cl);
         k_back.setArg(7, dist_cl);

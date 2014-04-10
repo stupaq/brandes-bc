@@ -20,7 +20,7 @@ inline void atomic_addf(
 inline int divide_up(
     int value,
     int factor) {
-  return (value + factor - 1) / factor;
+  return (value + (1 << factor) - 1) >> factor;
 }
 
 /** VCSR Brandes' algorithm. */
@@ -51,7 +51,7 @@ __kernel void vcsr_forward(
     __global bool* proceed,
     __global int* vmap,
     __global int* voff,
-    const int kMDeg,
+    const int kMDegLog2,
     __global int* ptr,
     __global int* adj,
     __global int* weight,
@@ -65,7 +65,7 @@ __kernel void vcsr_forward(
     if (my_dist == curr_dist) {
       int my_ptr = ptr[my_map];
       const int next_ptr = ptr[my_map + 1];
-      const int my_cnt = divide_up(next_ptr - my_ptr, kMDeg);
+      const int my_cnt = divide_up(next_ptr - my_ptr, kMDegLog2);
       const int my_off = voff[my_vi];
       my_ptr += my_off;
       const int my_sigma = sigma[my_map];
@@ -92,7 +92,7 @@ __kernel void vcsr_backward(
     const int curr_dist,
     __global int* vmap,
     __global int* voff,
-    const int kMDeg,
+    const int kMDegLog2,
     __global int* ptr,
     __global int* adj,
     __global int* dist,
@@ -104,7 +104,7 @@ __kernel void vcsr_backward(
       float sum = 0.0f;
       int my_ptr = ptr[my_map];
       const int next_ptr = ptr[my_map + 1];
-      const int my_cnt = divide_up(next_ptr - my_ptr, kMDeg);
+      const int my_cnt = divide_up(next_ptr - my_ptr, kMDegLog2);
       my_ptr += voff[my_vi];
       for (; my_ptr < next_ptr; my_ptr += my_cnt) {
         const int other_i = adj[my_ptr];

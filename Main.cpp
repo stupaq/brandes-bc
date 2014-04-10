@@ -25,6 +25,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include <cstdio>
+#include <cmath>
 #include <cassert>
 #include <utility>
 #include <string>
@@ -45,6 +46,10 @@ static inline void generic_write(Result& res, const char* file_path) {
   MICROPROF_END(writing_results);
 }
 
+static inline int log2ceil(int x) {
+  return std::ceil(std::log2(x));
+}
+
 int main(int argc, const char* argv[]) {
   using namespace brandes;  // NOLINT(build/namespaces)
   MICROPROF_START(main_total);
@@ -52,8 +57,8 @@ int main(int argc, const char* argv[]) {
 
   Context ctx = {
     std::async(std::launch::async, mycl::init_device),
-    argc > 3 ? boost::lexical_cast<int>(argv[3]) : 16,
-    argc > 4 ? boost::lexical_cast<int>(argv[4]) : 128,
+    argc > 3 ? log2ceil(boost::lexical_cast<int>(argv[3])) : 4,
+    argc > 4 ? log2ceil(boost::lexical_cast<int>(argv[4])) : 7,
   };
 #ifdef MYCL_ERROR_CHECKING
   try {

@@ -25,7 +25,7 @@ namespace brandes {
         }
         PRINT_STATS("biggest component\t%d / %d = %f\n", maxcs, ccs.back(),
             static_cast<float>(maxcs) / ccs.back());
-        const int low_thr = 2, big_thr = ctx.kMDeg_;
+        const int low_thr = 2, big_thr = 1 << ctx.kMDegLog2_;
         int low_count = 0, big_count = 0;
         VertexId last_p = - (low_thr + big_thr) / 2;
         for (auto p : ptr) {
@@ -38,10 +38,10 @@ namespace brandes {
           }
           last_p = p;
         }
-        PRINT_STATS("degree 0-1 count\t%d / %d = %f\n", low_count, ccs.back(),
-            static_cast<float>(low_count) / ccs.back());
-        PRINT_STATS("high degree count\t%d / %d = %f\n", big_count, ccs.back(),
-            static_cast<float>(big_count) / ccs.back());
+        PRINT_STATS("degree < %d count\t%d / %d = %f\n", low_thr, low_count,
+            ccs.back(), static_cast<float>(low_count) / ccs.back());
+        PRINT_STATS("degree > %d count\t%d / %d = %f\n", big_thr, big_count,
+            ccs.back(), static_cast<float>(big_count) / ccs.back());
         MICROPROF_END(statistics);
         return CONT_BIND(ctx, ptr, adj, ccs);
       }

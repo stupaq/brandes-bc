@@ -7,30 +7,32 @@
 
 #include "./BrandesDEG1.h"
 
-template<typename Int> inline Int round_up(Int value, Int factor) {
-  return value + factor - 1 - (value - 1) % factor;
-}
-
-template<typename Int> inline Int divide_up(Int value, Int factor) {
-  return (value + factor - 1) / factor;
-}
-
 namespace brandes {
+
+  template<typename Int> inline Int round_up(Int value, Int factor) {
+    Int factor_mask = (1 << factor) - 1;
+    return value + factor_mask - ((value - 1) & factor_mask);
+  }
+
+  template<typename Int> inline Int divide_up(Int value, Int factor) {
+    return (value + (1 << factor) - 1) >> factor;
+  }
 
   template<typename Cont> struct vcsr_create {
     template<typename Return, typename Weights>
       inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj,
           Weights& weight, VertexList& ccs) const {
-        MICROPROF_INFO("CONFIGURATION:\tvirtualized deg\t%d\n", ctx.kMDeg_);
+        MICROPROF_INFO("CONFIGURATION:\tvirtualized deg\t%d\n",
+            1 << ctx.kMDegLog2_);
         MICROPROF_START(virtualization);
-        const size_t kN1Estimate = ptr.size() + adj.size() / ctx.kMDeg_;
+        const size_t kN1Estimate = ptr.size() + (adj.size() >> ctx.kMDegLog2_);
         const VertexId n = ptr.size() - 1;
         VertexList vmap, voff;
         vmap.reserve(kN1Estimate);
         voff.reserve(kN1Estimate);
         for (VertexId ind = 0; ind < n; ind++) {
           VertexId deg = ptr[ind + 1] - ptr[ind],
-                   vcnt = divide_up(deg, ctx.kMDeg_);
+                   vcnt = divide_up(deg, ctx.kMDegLog2_);
           if (vcnt == 0) {
             vmap.push_back(ind);
             voff.push_back(0);
@@ -57,7 +59,8 @@ namespace brandes {
           } else {
             assert(voff[vind + 1] == 0);
             if (ptr[ind + 1] != ptr[ind]) {
-              assert(voff[vind] + 1 == (deg + ctx.kMDeg_ - 1) / ctx.kMDeg_);
+              const int kMDeg = 1 << ctx.kMDegLog2_;
+              assert(voff[vind] + 1 == (deg + kMDeg - 1) / kMDeg);
             }
           }
         }

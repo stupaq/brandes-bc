@@ -16,8 +16,8 @@ namespace brandes {
 
   struct Context {
     std::future<Accelerator> dev_future_;
-    const int kMDeg_;
-    const int kWGroup_;
+    const int kMDegLog2_;
+    const int kWGroupLog2_;
   };
 
   typedef cl_int VertexId;
