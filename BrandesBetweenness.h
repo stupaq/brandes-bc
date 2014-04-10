@@ -14,8 +14,8 @@ namespace brandes {
   template<typename Cont> struct betweenness {
     template<typename Return, typename Reordering>
       inline Return cont(Context& ctx, Reordering& ord, VertexList& ptr,
-          VertexList& adj, VertexList& vmap, VertexList& voff, VertexList&)
-      const {
+          VertexList& adj, std::vector<int> weight, VertexList& vmap,
+          VertexList& voff, VertexList&) const {
         MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n", ctx.kWGroup_);
         MICROPROF_START(device_wait);
         Accelerator acc = ctx.dev_future_.get();
@@ -35,6 +35,7 @@ namespace brandes {
         cl::Buffer voff_cl(acc.context_, CL_MEM_READ_ONLY, bytes(voff));
         cl::Buffer ptr_cl(acc.context_, CL_MEM_READ_ONLY, bytes(ptr));
         cl::Buffer adj_cl(acc.context_, CL_MEM_READ_ONLY, bytes(adj));
+        cl::Buffer weight_cl(acc.context_, CL_MEM_READ_ONLY, bytes(weight));
         cl::Buffer dist_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
         cl::Buffer sigma_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
         cl::Buffer delta_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
@@ -43,6 +44,7 @@ namespace brandes {
         q.enqueueWriteBuffer(voff_cl, false, 0, bytes(voff), voff.data());
         q.enqueueWriteBuffer(ptr_cl, false, 0, bytes(ptr), ptr.data());
         q.enqueueWriteBuffer(adj_cl, false, 0, bytes(adj), adj.data());
+        q.enqueueWriteBuffer(weight_cl, false, 0, bytes(weight), weight.data());
         MICROPROF_END(graph_to_gpu);
 
         MICROBENCH_TIMEPOINT(starting_kernels);
@@ -66,9 +68,10 @@ namespace brandes {
         k_fwd.setArg(5, static_cast<int>(ctx.kMDeg_));
         k_fwd.setArg(6, ptr_cl);
         k_fwd.setArg(7, adj_cl);
-        k_fwd.setArg(8, dist_cl);
-        k_fwd.setArg(9, sigma_cl);
-        k_fwd.setArg(10, delta_cl);
+        k_fwd.setArg(8, weight_cl);
+        k_fwd.setArg(9, dist_cl);
+        k_fwd.setArg(10, sigma_cl);
+        k_fwd.setArg(11, delta_cl);
         cl::Kernel k_back(acc.program_, "vcsr_backward");
         k_back.setArg(0, n1);
         k_back.setArg(2, vmap_cl);
@@ -80,10 +83,11 @@ namespace brandes {
         k_back.setArg(8, delta_cl);
         cl::Kernel k_sum(acc.program_, "vcsr_sum");
         k_sum.setArg(0, n);
-        k_sum.setArg(2, dist_cl);
-        k_sum.setArg(3, sigma_cl);
-        k_sum.setArg(4, delta_cl);
-        k_sum.setArg(5, bc_cl);
+        k_sum.setArg(2, weight_cl);
+        k_sum.setArg(3, dist_cl);
+        k_sum.setArg(4, sigma_cl);
+        k_sum.setArg(5, delta_cl);
+        k_sum.setArg(6, bc_cl);
 
         for (int source = 0; source < n; source++) {
           k_source.setArg(1, source);

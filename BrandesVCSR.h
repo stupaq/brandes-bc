@@ -18,9 +18,9 @@ template<typename Int> inline Int divide_up(Int value, Int factor) {
 namespace brandes {
 
   template<typename Cont> struct vcsr_create {
-    template<typename Return, typename Reordering>
+    template<typename Return, typename Reordering, typename Weights>
       inline Return cont(Context& ctx, Reordering& ord, VertexList& ptr,
-          VertexList& adj, VertexList& ccs) const
+          VertexList& adj, Weights& weight, VertexList& ccs) const
       {
         MICROPROF_INFO("CONFIGURATION:\tvirtualized deg\t%d\n", ctx.kMDeg_);
         MICROPROF_START(virtualization);
@@ -64,7 +64,7 @@ namespace brandes {
         }
 #endif  // NDEBUG
         MICROPROF_END(virtualization);
-        return CONT_BIND(ctx, ord, ptr, adj, vmap, voff, ccs);
+        return CONT_BIND(ctx, ord, ptr, adj, weight, vmap, voff, ccs);
       }
   };
 

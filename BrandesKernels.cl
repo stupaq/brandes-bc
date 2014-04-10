@@ -54,6 +54,7 @@ __kernel void vcsr_forward(
     const int kMDeg,
     __global int* ptr,
     __global int* adj,
+    __global int* weight,
     __global int* dist,
     __global int* sigma,
     __global float* delta) {
@@ -80,7 +81,7 @@ __kernel void vcsr_forward(
         }
       }
       if (my_off == 0) {
-        delta[my_map] = 1.0f / my_sigma;
+        delta[my_map] = (float) weight[my_map] / my_sigma;
       }
     }
   }
@@ -121,13 +122,14 @@ __kernel void vcsr_backward(
 __kernel void vcsr_sum(
     const int global_id_range,
     const int source,
+    __global int* weight,
     __global int* dist,
     __global int* sigma,
     __global float* delta,
     __global float* bc) {
   const int my_i = get_global_id(0);
   if (my_i < global_id_range && my_i != source && dist[my_i] != -1) {
-    bc[my_i] += delta[my_i] * sigma[my_i] - 1;
+    bc[my_i] += (delta[my_i] * sigma[my_i] - 1) * (float) weight[source];
   }
 }
 
