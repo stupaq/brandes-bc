@@ -21,9 +21,8 @@ namespace brandes {
         auto qfront = queue.begin(), qback = queue.begin();
         for (VertexId i = 0; i < n; i++) {
           deg[i] = ptr[i + 1] - ptr[i];
-          if (deg[i] == 0) {
-            weight[i] = 0;
-          } else if (deg[i] == 1) {
+          assert(deg[i] >= 0);
+          if (deg[i] <= 1) {
             *qback++ = i;
           }
         }
@@ -41,21 +40,22 @@ namespace brandes {
         while (qfront != qback) {
           VertexId u = *qfront++;
           assert(0 == deg[u] || deg[u] == 1);
-          if (deg[u] != 1) {
-            continue;
-          }
-          float rest = static_cast<float>(ccsz[u] - weight[u]);
-          bc[u] += rest * (weight[u] - 1);
-          newind[u] = 0;
-          auto next = adj.begin() + ptr[u];
-          const auto last = adj.begin() + ptr[u + 1];
-          for (; next != last; next++) {
-            VertexId v = *next;
-            if (newind[v] == 1) {
-              bc[v] += weight[u] * (rest - 1);
-              weight[v] += weight[u];
-              if (--deg[v] == 1) {
-                *qback++ = v;
+          if (deg[u] == 0) {
+            newind[u] = 0;
+          } else {
+            float rest = static_cast<float>(ccsz[u] - weight[u]);
+            bc[u] += rest * (weight[u] - 1);
+            newind[u] = 0;
+            auto next = adj.begin() + ptr[u];
+            const auto last = adj.begin() + ptr[u + 1];
+            for (; next != last; next++) {
+              VertexId v = *next;
+              if (newind[v] == 1) {
+                bc[v] += weight[u] * (rest - 1);
+                weight[v] += weight[u];
+                if (--deg[v] == 1) {
+                  *qback++ = v;
+                }
               }
             }
           }
@@ -98,34 +98,6 @@ namespace brandes {
         if (adj.size() > 0) {
           // TODO(stupaq) ccs needs serious fixup
           auto bc1 = CONT_BIND(ctx, ptr, adj, weight, ccs);
-          for (auto x : newind) {
-            printf("%d ", x);
-          }
-          printf("\n");
-          for (auto x : bc) {
-            printf("%f ", x);
-          }
-          printf("\n");
-          for (auto x : ptr) {
-            printf("%d ", x);
-          }
-          printf("\n");
-          for (auto x : adj) {
-            printf("%d ", x);
-          }
-          printf("\n");
-          for (auto x : weight) {
-            printf("%d ", x);
-          }
-          printf("\n");
-          for (auto x : bc1) {
-            printf("%f ", x);
-          }
-          printf("\n");
-          for (auto x : ccs) {
-            printf("%d ", x);
-          }
-          printf("\n");
           MICROPROF_START(deg1_expansion);
           for (VertexId oind = 0; oind < n; oind++) {
             if (newind[oind] != -1) {
