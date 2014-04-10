@@ -20,7 +20,7 @@
 
 // FIXME(stupaq) other options?
 #define ALGORITHM_PIPE\
-  csr_create<ocsr_create<statistics<deg1_reduce<vcsr_create<betweenness<postprocess>>>>>>  // NOLINT(whitespace/line_length)
+  csr_create<ocsr_create<statistics<deg1_reduce<vcsr_create<betweenness>>>>>  // NOLINT(whitespace/line_length)
 
 #include <boost/lexical_cast.hpp>
 
@@ -31,7 +31,7 @@
 #include <future>
 #include <vector>
 
-#include "./Brandes.h"
+#include "./BrandesBetweenness.h"
 
 template<typename Result>
 static inline void generic_write(Result& res, const char* file_path) {

@@ -10,10 +10,9 @@
 namespace brandes {
 
   template<typename Cont> struct deg1_reduce {
-    template<typename Return, typename Reordering>
-      inline Return cont(Context& ctx, Reordering& ord, VertexList& ptr,
-          VertexList& adj, VertexList& ccs) const
-      {
+    template<typename Return>
+      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj,
+          VertexList& ccs) const {
         const VertexId n = ptr.size() - 1;
         MICROPROF_START(deg1_reduction);
         std::vector<float> bc(n, 0.0f);
@@ -82,7 +81,6 @@ namespace brandes {
             for (; next != last; next++) {
               if (newind[*next] >= 0) {
                 assert(icadj <= next - adj.begin());
-                assert(newind[*next] >= 0);
                 adj[icadj++] = newind[*next];
               }
             }
@@ -96,7 +94,7 @@ namespace brandes {
         assert(ptr.size() > 1 || ptr.back() == 0);
         MICROPROF_END(deg1_reduction);
         if (adj.size() > 0) {
-          std::vector<float> bc1 = CONT_BIND(ctx, ord, ptr, adj, weight, ccs);
+          auto bc1 = CONT_BIND(ctx, ptr, adj, weight, ccs);
           MICROPROF_START(deg1_expansion);
           for (VertexId oind = 0; oind < n; oind++) {
             if (newind[oind] != -1) {
@@ -108,6 +106,17 @@ namespace brandes {
           fprintf(stderr, "0\n0\n");
         }
         return bc;
+      }
+  };
+
+  template<typename Cont> struct deg1_pass {
+    template<typename Return>
+      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj,
+          VertexList& ccs) const {
+        const VertexId n = ptr.size() - 1;
+        // TODO(stupaq) sir, it can be done better
+        std::vector<int> weight(n, 1);
+        return CONT_BIND(ctx, ptr, adj, weight, ccs);
       }
   };
 

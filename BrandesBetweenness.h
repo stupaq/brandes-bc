@@ -11,11 +11,11 @@
 namespace brandes {
   using mycl::bytes;
 
-  template<typename Cont> struct betweenness {
-    template<typename Return, typename Reordering>
-      inline Return cont(Context& ctx, Reordering& ord, VertexList& ptr,
-          VertexList& adj, std::vector<int> weight, VertexList& vmap,
-          VertexList& voff, VertexList&) const {
+  struct betweenness {
+    template<typename Return>
+      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj,
+          std::vector<int> weight, VertexList& vmap, VertexList& voff,
+          VertexList&) const {
         MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n", ctx.kWGroup_);
         MICROPROF_START(device_wait);
         Accelerator acc = ctx.dev_future_.get();
@@ -23,9 +23,9 @@ namespace brandes {
         MICROPROF_END(device_wait);
 
         cl::NDRange local(ctx.kWGroup_);
-        const int n = ptr.size() - 1;
+        const VertexId n = ptr.size() - 1;
         cl::NDRange n_global(round_up(n, ctx.kWGroup_));
-        const int n1 = vmap.size();
+        const VertexId n1 = vmap.size();
         cl::NDRange n1_global(round_up(n1, ctx.kWGroup_));
 
         MICROBENCH_TIMEPOINT(moving_data);
@@ -127,15 +127,15 @@ namespace brandes {
         MICROBENCH_REPORT(moving_data, fetched_results, stderr, "%ld\n",
             std::chrono::milliseconds);
 
-        return CONT_BIND(ord, bc);
+        return bc;
       }
 
-    template<typename Return, typename Reordering>
-      inline Return cont(Context&, Reordering& ord, VertexList&,
-          VertexList&, VertexList&) const {
+    template<typename Return>
+      inline Return cont(Context&, VertexList& ptr, VertexList&, VertexList&)
+      const {
         // TODO(stupaq) this is probably not worth looking at
-        std::vector<float> bc;
-        return CONT_BIND(ord, bc);
+        const VertexId n = ptr.size() - 1;
+        return std::vector<float>(n);
       }
   };
 

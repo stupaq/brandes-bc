@@ -14,9 +14,9 @@
 namespace brandes {
 
   template<typename Cont> struct statistics {
-    template<typename Return, typename Reordering>
-      inline Return cont(Context& ctx, Reordering& ord, VertexList& ptr,
-          VertexList& adj, VertexList& ccs) const {
+    template<typename Return>
+      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj,
+          VertexList& ccs) const {
         MICROPROF_START(statistics);
         VertexId lastc = 0, maxcs = 0;
         for (auto c : ccs) {
@@ -43,7 +43,7 @@ namespace brandes {
         PRINT_STATS("high degree count\t%d / %d = %f\n", big_count, ccs.back(),
             static_cast<float>(big_count) / ccs.back());
         MICROPROF_END(statistics);
-        return CONT_BIND(ctx, ord, ptr, adj, ccs);
+        return CONT_BIND(ctx, ptr, adj, ccs);
       }
   };
 

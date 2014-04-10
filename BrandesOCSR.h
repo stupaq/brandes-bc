@@ -80,7 +80,12 @@ namespace brandes {
         }
 #endif  // NDEBUG
         MICROPROF_END(bfs_ordering);
-        return CONT_BIND(ctx, bfsno, optr, oadj, ccs);
+        auto bc1 = CONT_BIND(ctx, optr, oadj, ccs);
+        Return bc(bc1.size());
+        for (VertexId orig = 0, end = bc1.size(); orig < end; orig++) {
+          bc[orig] = bc1[bfsno[orig]];
+        }
+        return bc;
       }
   };
 
@@ -91,9 +96,8 @@ namespace brandes {
         MICROPROF_START(bfs_ordering);
         const VertexId n = ptr.size() - 1;
         VertexList ccs = { 0, n };
-        Identity id;
         MICROPROF_END(bfs_ordering);
-        return CONT_BIND(ctx, id, ptr, adj, ccs);
+        return CONT_BIND(ctx, ptr, adj, ccs);
       }
   };
 
