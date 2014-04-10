@@ -69,15 +69,15 @@ namespace brandes {
             ind = -1;
           }
         }
-        auto itcptr = ptr.begin();
-        VertexId icadj = 0;
+        VertexId icadj = 0, nind = 0;
         for (VertexId oind = 0; oind < n; oind++) {
           if (newind[oind] >= 0) {
-            assert(newind[oind] == itcptr - ptr.begin());
+            assert(newind[oind] == nind);
             auto next = adj.begin() + ptr[oind];
             const auto last = adj.begin() + ptr[oind + 1];
-            assert(itcptr - ptr.begin() <= oind);
-            *itcptr++ = icadj;
+            assert(nind <= oind);
+            weight[nind] = weight[oind];
+            ptr[nind++] = icadj;
             for (; next != last; next++) {
               if (newind[*next] >= 0) {
                 assert(icadj <= next - adj.begin());
@@ -86,15 +86,46 @@ namespace brandes {
             }
           }
         }
-        *itcptr++ = icadj;
-        ptr.resize(itcptr - ptr.begin());
+        ptr[nind++] = icadj;
+        ptr.resize(nind);
+        weight.resize(nind - 1);
         adj.resize(icadj);
         assert(ptr.back() == adj.size());
         assert(ptr.size() > 0);
         assert(ptr.size() > 1 || ptr.back() == 0);
+        assert(weight.size() == ptr.size() - 1);
         MICROPROF_END(deg1_reduction);
         if (adj.size() > 0) {
+          // TODO(stupaq) ccs needs serious fixup
           auto bc1 = CONT_BIND(ctx, ptr, adj, weight, ccs);
+          for (auto x : newind) {
+            printf("%d ", x);
+          }
+          printf("\n");
+          for (auto x : bc) {
+            printf("%f ", x);
+          }
+          printf("\n");
+          for (auto x : ptr) {
+            printf("%d ", x);
+          }
+          printf("\n");
+          for (auto x : adj) {
+            printf("%d ", x);
+          }
+          printf("\n");
+          for (auto x : weight) {
+            printf("%d ", x);
+          }
+          printf("\n");
+          for (auto x : bc1) {
+            printf("%f ", x);
+          }
+          printf("\n");
+          for (auto x : ccs) {
+            printf("%d ", x);
+          }
+          printf("\n");
           MICROPROF_START(deg1_expansion);
           for (VertexId oind = 0; oind < n; oind++) {
             if (newind[oind] != -1) {
