@@ -6,7 +6,6 @@
 #include <vector>
 #include <atomic>
 #include <future>
-#include <list>
 
 #include "./BrandesDEG1.h"
 
@@ -21,13 +20,10 @@ namespace brandes {
          * reference to std::async task... */
         std::atomic_int* source_dispatch
         ) {
-      typedef typename Return::value_type FloatType;
       const VertexId n = ptr.size() - 1;
       Return bc(n, 0.0f), delta(n);
       VertexList queue(n);
       std::vector<int> dist(n), sigma(n);
-      // TODO(stupaq) get rid of this if possible, it breaks cache locality
-      std::vector<std::list<VertexId>> pred(n);
       VertexId source, processed_count = 0;
       while ((source = (*source_dispatch)++) < n) {
         auto qfront = queue.begin(), qback = qfront;
@@ -37,11 +33,6 @@ namespace brandes {
         std::fill(sigma.begin(), sigma.end(), 0);
         sigma[source] = 1;
         *qback++ = source;
-#ifndef NDEBUG
-        for (auto& l : pred) {
-          assert(l.empty());
-        }
-#endif  // NDEBUG
         /* Forward. */
         while (qfront != qback) {
           VertexId v = *qfront++;
@@ -57,29 +48,34 @@ namespace brandes {
             }
             if (dist[w] == dist[v] + 1) {
               sigma[w] += sigma[v];
-              pred[w].push_back(v);
             }
           }
         }
         /* Intermediate. */
         for (VertexId v = 0; v < n; v++) {
-          delta[v] = static_cast<FloatType>(weight[v]) / sigma[v];
+          delta[v] = weight[v] / sigma[v];
         }
         /* Backward. */
         assert(qfront == qback);
-        qfront = queue.begin() - 1;
-        while (qfront != qback) {
-          VertexId w = *--qback;
-          for (auto v : pred[w]) {
-            delta[v] += delta[w];
+        auto sfront = std::reverse_iterator<VertexList::iterator>(qback),
+             sback = queue.rend();
+        while (sfront != sback) {
+          VertexId w = *sfront++;
+          assert(w < n);
+          auto itadj = adj.begin() + ptr[w];
+          const auto itadjN = adj.begin() + ptr[w + 1];
+          while (itadj != itadjN) {
+            VertexId v = *itadj++;
+            assert(v < n);
+            if (dist[w] == dist[v] + 1) {
+              delta[v] += delta[w];
+            }
           }
-          pred[w].clear();
         }
         /* Sum. */
         for (VertexId v = 0; v < n; v++) {
           if (v != source && dist[v] >= 0) {
-            bc[v] += (delta[v] * sigma[v] - 1) *
-              static_cast<FloatType>(weight[source]);
+            bc[v] += (delta[v] * sigma[v] - 1) * weight[source];
           }
         }
         processed_count++;
