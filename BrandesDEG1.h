@@ -17,10 +17,11 @@ namespace brandes {
           VertexList& adj,
           const VertexList& ccs
           ) const {
+        typedef typename Return::value_type FloatType;
         const VertexId n = ptr.size() - 1;
         MICROPROF_START(deg1_reduction);
-        std::vector<float> bc(n, 0.0f);
-        std::vector<int> weight(n, 1), deg(n), ccsz(n);
+        Return bc(n, 0.0f), weight(n, 1.0f);
+        std::vector<int> deg(n), ccsz(n);
         VertexList queue(n), newind(n, 1);
         auto qfront = queue.begin(), qback = queue.begin();
         for (VertexId i = 0; i < n; i++) {
@@ -47,7 +48,7 @@ namespace brandes {
           if (deg[u] == 0) {
             newind[u] = 0;
           } else {
-            float rest = static_cast<float>(ccsz[u] - weight[u]);
+            FloatType rest = static_cast<FloatType>(ccsz[u] - weight[u]);
             bc[u] += rest * (weight[u] - 1);
             newind[u] = 0;
             auto next = adj.begin() + ptr[u];
@@ -126,7 +127,7 @@ namespace brandes {
           ) const {
         const VertexId n = ptr.size() - 1;
         // TODO(stupaq) sir, it can be done better
-        std::vector<int> weight(n, 1);
+        Return weight(n, 1.0f);
         return CONT_BIND(ctx, ptr, adj, weight);
       }
   };

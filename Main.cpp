@@ -59,8 +59,8 @@ int main(int argc, const char* argv[]) {
     std::async(std::launch::async, mycl::init_device),
     argc > 3 ? log2ceil(boost::lexical_cast<int>(argv[3])) : 4,
     argc > 4 ? log2ceil(boost::lexical_cast<int>(argv[4])) : 7,
-    argc > 5 ? boost::lexical_cast<int>(argv[5]) : 1,
-    argc > 6 ? boost::lexical_cast<bool>(argv[6]) : false,
+    argc > 5 ? boost::lexical_cast<int>(argv[5]) : 3,
+    argc > 6 ? boost::lexical_cast<bool>(argv[6]) : true,
   };
 #ifdef MYCL_ERROR_CHECKING
   try {

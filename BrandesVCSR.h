@@ -19,12 +19,12 @@ namespace brandes {
   }
 
   template<typename Cont> struct vcsr_create {
-    template<typename Return, typename Weights, typename Dispatch>
+    template<typename Return, typename Dispatch>
       inline Return cont(
           Context& ctx,
           const VertexList& ptr,
           const VertexList& adj,
-          const Weights& weight,
+          const Return& weight,
           Dispatch& dispatch
           ) const {
         MICROPROF_INFO("CONFIGURATION:\tvirtualized deg\t%d\n",

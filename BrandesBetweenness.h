@@ -20,7 +20,7 @@ namespace brandes {
           const VertexList& voff,
           const VertexList& ptr,
           const VertexList& adj,
-          const std::vector<int>& weight,
+          const Return& weight,
           std::atomic_int& source_dispatch
           ) const {
         MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n",
@@ -150,7 +150,7 @@ namespace brandes {
           }
         }
 
-        std::vector<float> bc(n);
+        Return bc(n);
         q.enqueueReadBuffer(bc_cl, true, 0, bytes(bc), bc.data());
         q.finish();
 

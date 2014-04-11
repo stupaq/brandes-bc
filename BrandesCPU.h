@@ -12,11 +12,11 @@
 
 namespace brandes {
 
-  template<typename Return, typename Weights>
+  template<typename Return>
     static inline Return bc_cpu_worker(
         const VertexList& ptr,
         const VertexList& adj,
-        const Weights& weight,
+        const Return& weight,
         /* This sounds like a bug in stdlib++, I couldn't pass atomic by
          * reference to std::async task... */
         std::atomic_int* source_dispatch
@@ -89,12 +89,12 @@ namespace brandes {
     }
 
   template<typename Cont> struct cpu_driver {
-    template<typename Return, typename Weights>
+    template<typename Return>
       inline Return cont(
           Context& ctx,
           const VertexList& ptr,
           const VertexList& adj,
-          const Weights& weight
+          const Return& weight
           ) const {
         assert(ctx.kUseGPU_ || ctx.kCPUJobs_ > 0);
         MICROPROF_INFO("CONFIGURATION:\tshould use GPU\t%d\n", ctx.kUseGPU_);
@@ -107,7 +107,7 @@ namespace brandes {
         MICROPROF_START(cpu_starting_jobs);
         for (int i = 0; i < ctx.kCPUJobs_; i++) {
           cpu_jobs.push_back(std::async(std::launch::async,
-                brandes::bc_cpu_worker<Return, Weights>,
+                brandes::bc_cpu_worker<Return>,
                 ptr, adj, weight, &source_dispatch));
         }
         MICROPROF_END(cpu_starting_jobs);
