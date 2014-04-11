@@ -22,9 +22,6 @@ namespace brandes {
         std::atomic_int* source_dispatch
         ) {
       typedef typename Return::value_type FloatType;
-      SUPPRESS_UNUSED(ptr);
-      SUPPRESS_UNUSED(adj);
-      SUPPRESS_UNUSED(weight);
       const VertexId n = ptr.size() - 1;
       Return bc(n, 0.0f), delta(n);
       VertexList queue(n);
@@ -32,16 +29,19 @@ namespace brandes {
       // TODO(stupaq) get rid of this if possible, it breaks cache locality
       std::vector<std::list<VertexId>> pred(n);
       VertexId source, processed_count = 0;
-      while ((source = source_dispatch->operator++()) < n) {
+      while ((source = (*source_dispatch)++) < n) {
         auto qfront = queue.begin(), qback = qfront;
-
         /* Init source. */
         std::fill(dist.begin(), dist.end(), -1);
         dist[source] = 0;
         std::fill(sigma.begin(), sigma.end(), 0);
         sigma[source] = 1;
         *qback++ = source;
-
+#ifndef NDEBUG
+        for (auto& l : pred) {
+          assert(l.empty());
+        }
+#endif  // NDEBUG
         /* Forward. */
         while (qfront != qback) {
           VertexId v = *qfront++;
@@ -61,15 +61,13 @@ namespace brandes {
             }
           }
         }
-
         /* Intermediate. */
         for (VertexId v = 0; v < n; v++) {
           delta[v] = static_cast<FloatType>(weight[v]) / sigma[v];
         }
-
         /* Backward. */
         assert(qfront == qback);
-        qfront = queue.begin();
+        qfront = queue.begin() - 1;
         while (qfront != qback) {
           VertexId w = *--qback;
           for (auto v : pred[w]) {
@@ -77,12 +75,13 @@ namespace brandes {
           }
           pred[w].clear();
         }
-
         /* Sum. */
-        for (VertexId v = 0; v < source; v++) {
-          bc[v] += delta[v] * sigma[v] - 1;
+        for (VertexId v = 0; v < n; v++) {
+          if (v != source && dist[v] >= 0) {
+            bc[v] += (delta[v] * sigma[v] - 1) *
+              static_cast<FloatType>(weight[source]);
+          }
         }
-
         processed_count++;
       }
       MICROPROF_INFO("CPU_WORKER:\tsources processed:\t%d\n", processed_count);
@@ -115,6 +114,9 @@ namespace brandes {
         Return bc = ctx.kUseGPU_
           ? CONT_BIND(ctx, ptr, adj, weight, source_dispatch)
           : Return(n, 0.0f);
+        if (!ctx.kUseGPU_) {
+          fprintf(stderr, "0\n0\n");
+        }
         MICROPROF_START(cpu_driver_combine);
         for (auto& cpu_job : cpu_jobs) {
           auto bc1  = cpu_job.get();
