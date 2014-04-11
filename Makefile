@@ -3,7 +3,7 @@
 CXXinclude	+= -isystem /usr/local/cuda-5.5/include/ -isystem /opt/cuda/include/ -isystem /opt/AMDAPP/include/
 CXXoptimize	+= -march=native -O3 -funroll-loops -flto -fwhole-program -fuse-linker-plugin -finline-limit=16777216
 CXXwarnings	+= -Wall -Wextra -pedantic
-CXXlint		?= cpplint --filter=-legal/copyright,-whitespace/braces,-whitespace/newline,-runtime/references
+CXXlint		?= cpplint --filter=-legal/copyright,-whitespace/braces,-whitespace/newline,-whitespace/parens,-runtime/references
 
 ifneq (,$(wildcard /usr/bin/g++-4.8))
 CXX		:= g++-4.8 -std=c++11
