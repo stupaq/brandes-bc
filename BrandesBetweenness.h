@@ -23,23 +23,29 @@ namespace brandes {
         cl::CommandQueue& q = acc.queue_;
         MICROPROF_END(device_wait);
 
+        /* We prepare our ranges for one extra thread (for inits). */
         cl::NDRange local(1 << ctx.kWGroupLog2_);
         const VertexId n = ptr.size() - 1;
-        cl::NDRange n_global(round_up(n, ctx.kWGroupLog2_));
-        const VertexId n1 = vmap.size();
-        cl::NDRange n1_global(round_up(n1, ctx.kWGroupLog2_));
+        cl::NDRange n_global(round_up(n + 1, ctx.kWGroupLog2_));
+        const VertexId n1 = vmap.size() - 1;
+        cl::NDRange n1_global(round_up(n1 + 1, ctx.kWGroupLog2_));
+        assert(vmap.back() == n);
+        assert(voff.back() == 0);
+        assert(ptr.back() == adj.size());
 
         MICROBENCH_TIMEPOINT(moving_data);
         MICROPROF_START(graph_to_gpu);
         cl::Buffer proceed_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(bool));
         cl::Buffer vmap_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vmap));
         cl::Buffer voff_cl(acc.context_, CL_MEM_READ_ONLY, bytes(voff));
+        cl::Buffer rmap_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vmap));
         cl::Buffer ptr_cl(acc.context_, CL_MEM_READ_ONLY, bytes(ptr));
         cl::Buffer adj_cl(acc.context_, CL_MEM_READ_ONLY, bytes(adj));
         cl::Buffer weight_cl(acc.context_, CL_MEM_READ_ONLY, bytes(weight));
         cl::Buffer dist_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
         cl::Buffer sigma_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
         cl::Buffer delta_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
+        cl::Buffer red_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n1);
         cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
         q.enqueueWriteBuffer(vmap_cl, false, 0, bytes(vmap), vmap.data());
         q.enqueueWriteBuffer(voff_cl, false, 0, bytes(voff), voff.data());
@@ -49,12 +55,20 @@ namespace brandes {
         MICROPROF_END(graph_to_gpu);
 
         MICROBENCH_TIMEPOINT(starting_kernels);
-        /* This approach appears to be measurably faster for bigger graphs
-           and we do not really care about dozens of us for small ones. */
-        cl::Kernel k_init(acc.program_, "vcsr_init");
-        k_init.setArg(0, n);
-        k_init.setArg(1, bc_cl);
-        q.enqueueNDRangeKernel(k_init, cl::NullRange, n_global, local);
+        { /* This approach appears to be measurably faster for big graphs. */
+          cl::Kernel k_init_n(acc.program_, "vcsr_init_n");
+          k_init_n.setArg(0, n);
+          k_init_n.setArg(1, bc_cl);
+          q.enqueueNDRangeKernel(k_init_n, cl::NullRange, n_global, local);
+        }
+        { /* Note that n1_global range is prepared for one extra thread. */
+          cl::Kernel k_init_n1(acc.program_, "vcsr_init_n1");
+          k_init_n1.setArg(0, n1 + 1);
+          k_init_n1.setArg(1, vmap_cl);
+          k_init_n1.setArg(2, voff_cl);
+          k_init_n1.setArg(3, rmap_cl);
+          q.enqueueNDRangeKernel(k_init_n1, cl::NullRange, n1_global, local);
+        }
 
         /** We can move some arguments setting outside of the loop. */
         cl::Kernel k_source(acc.program_, "vcsr_init_source");
@@ -63,10 +77,10 @@ namespace brandes {
         k_source.setArg(3, sigma_cl);
         cl::Kernel k_fwd(acc.program_, "vcsr_forward");
         k_fwd.setArg(0, n1);
-        k_fwd.setArg(2, proceed_cl);
-        k_fwd.setArg(3, vmap_cl);
-        k_fwd.setArg(4, voff_cl);
-        k_fwd.setArg(5, ctx.kMDegLog2_);
+        k_fwd.setArg(2, ctx.kMDegLog2_);
+        k_fwd.setArg(3, proceed_cl);
+        k_fwd.setArg(4, vmap_cl);
+        k_fwd.setArg(5, voff_cl);
         k_fwd.setArg(6, ptr_cl);
         k_fwd.setArg(7, adj_cl);
         k_fwd.setArg(8, weight_cl);
@@ -75,13 +89,20 @@ namespace brandes {
         k_fwd.setArg(11, delta_cl);
         cl::Kernel k_back(acc.program_, "vcsr_backward");
         k_back.setArg(0, n1);
-        k_back.setArg(2, vmap_cl);
-        k_back.setArg(3, voff_cl);
-        k_back.setArg(4, ctx.kMDegLog2_);
+        k_back.setArg(2, ctx.kMDegLog2_);
+        k_back.setArg(3, vmap_cl);
+        k_back.setArg(4, voff_cl);
         k_back.setArg(5, ptr_cl);
         k_back.setArg(6, adj_cl);
         k_back.setArg(7, dist_cl);
         k_back.setArg(8, delta_cl);
+        k_back.setArg(9, red_cl);
+        cl::Kernel k_back_red(acc.program_, "vcsr_backward_reduce");
+        k_back_red.setArg(0, n);
+        k_back_red.setArg(2, rmap_cl);
+        k_back_red.setArg(3, dist_cl);
+        k_back_red.setArg(4, delta_cl);
+        k_back_red.setArg(5, red_cl);
         cl::Kernel k_sum(acc.program_, "vcsr_sum");
         k_sum.setArg(0, n);
         k_sum.setArg(2, weight_cl);
@@ -105,9 +126,11 @@ namespace brandes {
             q.finish();
           } while (proceed);
 
-          while (curr_dist > 1) {
-            k_back.setArg(1, --curr_dist);
+          while (--curr_dist > 0) {
+            k_back.setArg(1, curr_dist);
             q.enqueueNDRangeKernel(k_back, cl::NullRange, n1_global, local);
+            k_back_red.setArg(1, curr_dist);
+            q.enqueueNDRangeKernel(k_back_red, cl::NullRange, n_global, local);
           }
 
           k_sum.setArg(1, source);
@@ -129,14 +152,6 @@ namespace brandes {
             std::chrono::milliseconds);
 
         return bc;
-      }
-
-    template<typename Return>
-      inline Return cont(Context&, VertexList& ptr, VertexList&, VertexList&)
-      const {
-        // TODO(stupaq) this is probably not worth looking at
-        const VertexId n = ptr.size() - 1;
-        return std::vector<float>(n);
       }
   };
 

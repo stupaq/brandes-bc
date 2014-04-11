@@ -1,35 +1,33 @@
 /** @author Mateusz Machalica */
 
-/** Atomic add implementation for floats. */
-typedef union {
-  unsigned int int_;
-  float float_;
-} u_int_float;
-
-inline void atomic_addf(
-    __global volatile float* source,
-    const float operand) {
-  u_int_float curr, prev;
-  do {
-    prev.float_ = *source;
-    curr.float_ = prev.float_ + operand;
-  } while (prev.int_ != atomic_cmpxchg(
-        (volatile __global unsigned int*) source, prev.int_, curr.int_));
-}
-
 inline int divide_up(
     int value,
     int factor) {
   return (value + (1 << factor) - 1) >> factor;
 }
 
-/** VCSR Brandes' algorithm. */
-__kernel void vcsr_init(
+/** Brandes' kernels. */
+__kernel void vcsr_init_n(
     const int global_id_range,
-    __global float* bc) {
+    __global float* bc
+    ) {
   const int my_i = get_global_id(0);
   if (my_i < global_id_range) {
     bc[my_i] = 0.0f;
+  }
+}
+
+__kernel void vcsr_init_n1(
+    const int global_id_range,
+    __global int* vmap,
+    __global int* voff,
+    __global int* rmap
+    ) {
+  const int my_vi = get_global_id(0);
+  if (my_vi < global_id_range) {
+    if (voff[my_vi] == 0) {
+      rmap[vmap[my_vi]] = my_vi;
+    }
   }
 }
 
@@ -37,7 +35,8 @@ __kernel void vcsr_init_source(
     const int global_id_range,
     const int source,
     __global int* dist,
-    __global int* sigma) {
+    __global int* sigma
+    ) {
   const int my_i = get_global_id(0);
   if (my_i < global_id_range) {
     dist[my_i] = select(-1, 0, source == my_i);
@@ -48,16 +47,17 @@ __kernel void vcsr_init_source(
 __kernel void vcsr_forward(
     const int global_id_range,
     const int curr_dist,
+    const int kMDegLog2,
     __global bool* proceed,
     __global int* vmap,
     __global int* voff,
-    const int kMDegLog2,
     __global int* ptr,
     __global int* adj,
     __global int* weight,
     __global int* dist,
     __global int* sigma,
-    __global float* delta) {
+    __global float* delta
+    ) {
   const int my_vi = get_global_id(0);
   if (my_vi < global_id_range) {
     const int my_map = vmap[my_vi];
@@ -90,13 +90,15 @@ __kernel void vcsr_forward(
 __kernel void vcsr_backward(
     const int global_id_range,
     const int curr_dist,
+    const int kMDegLog2,
     __global int* vmap,
     __global int* voff,
-    const int kMDegLog2,
     __global int* ptr,
     __global int* adj,
     __global int* dist,
-    __global float* delta) {
+    __global float* delta,
+    __global float* red
+    ) {
   const int my_vi = get_global_id(0);
   if (my_vi < global_id_range) {
     const int my_map = vmap[my_vi];
@@ -112,9 +114,29 @@ __kernel void vcsr_backward(
           sum += delta[other_i];
         }
       }
-      if (sum != 0.0f) {
-        atomic_addf(&delta[my_map], sum);
+      red[my_vi] = sum;
+    }
+  }
+}
+
+__kernel void vcsr_backward_reduce(
+    const int global_id_range,
+    const int curr_dist,
+    __global int* rmap,
+    __global int* dist,
+    __global float* delta,
+    __global float* red
+    ) {
+  const int my_i = get_global_id(0);
+  if (my_i < global_id_range) {
+    if (dist[my_i] == curr_dist - 1) {
+      float sum = 0.0f;
+      int next_i = rmap[my_i];
+      const int last_i = rmap[my_i + 1];
+      for (; next_i < last_i; next_i++) {
+        sum += red[next_i];
       }
+      delta[my_i] += sum;
     }
   }
 }
@@ -126,7 +148,8 @@ __kernel void vcsr_sum(
     __global int* dist,
     __global int* sigma,
     __global float* delta,
-    __global float* bc) {
+    __global float* bc
+    ) {
   const int my_i = get_global_id(0);
   if (my_i < global_id_range && my_i != source && dist[my_i] != -1) {
     bc[my_i] += (delta[my_i] * sigma[my_i] - 1) * (float) weight[source];

@@ -25,7 +25,8 @@ namespace brandes {
         MICROPROF_INFO("CONFIGURATION:\tvirtualized deg\t%d\n",
             1 << ctx.kMDegLog2_);
         MICROPROF_START(virtualization);
-        const size_t kN1Estimate = ptr.size() + (adj.size() >> ctx.kMDegLog2_);
+        const size_t kN1Estimate = ptr.size() + (adj.size() >> ctx.kMDegLog2_)
+          + 10;
         const VertexId n = ptr.size() - 1;
         VertexList vmap, voff;
         vmap.reserve(kN1Estimate);
@@ -43,13 +44,15 @@ namespace brandes {
             }
           }
         }
+        vmap.push_back(n);
+        voff.push_back(0);
         MICROPROF_WARN(kN1Estimate < vmap.capacity() || kN1Estimate <
             voff.capacity(), "virtual vertex count estimate too small");
 #ifndef NDEBUG
         assert(vmap.size() == voff.size());
-        assert(vmap.back() == n - 1);
-        const VertexId n1 = vmap.size();
-        for (VertexId vind = 0; vind < n1 - 1; vind++) {
+        assert(vmap.back() == n);
+        const VertexId n1 = vmap.size() - 1;
+        for (VertexId vind = 0; vind < n1; vind++) {
           assert(vmap[vind + 1] >= vmap[vind]);
           assert(vmap[vind + 1] <= vmap[vind] + 1);
           VertexId ind = vmap[vind];
