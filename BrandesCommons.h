@@ -18,6 +18,8 @@ namespace brandes {
     std::future<Accelerator> dev_future_;
     const int kMDegLog2_;
     const int kWGroupLog2_;
+    const int kCPUJobs_;
+    const bool kUseGPU_;
   };
 
   typedef cl_int VertexId;

@@ -5,7 +5,7 @@
 #include <cassert>
 #include <vector>
 
-#include "./BrandesDEG1.h"
+#include "./BrandesCPU.h"
 
 namespace brandes {
 
@@ -19,12 +19,13 @@ namespace brandes {
   }
 
   template<typename Cont> struct vcsr_create {
-    template<typename Return, typename Weights>
+    template<typename Return, typename Weights, typename Dispatch>
       inline Return cont(
           Context& ctx,
           const VertexList& ptr,
           const VertexList& adj,
-          const Weights& weight
+          const Weights& weight,
+          Dispatch& dispatch
           ) const {
         MICROPROF_INFO("CONFIGURATION:\tvirtualized deg\t%d\n",
             1 << ctx.kMDegLog2_);
@@ -73,7 +74,7 @@ namespace brandes {
         }
 #endif  // NDEBUG
         MICROPROF_END(virtualization);
-        return CONT_BIND(ctx, vmap, voff, ptr, adj, weight);
+        return CONT_BIND(ctx, vmap, voff, ptr, adj, weight, dispatch);
       }
   };
 

@@ -5,6 +5,7 @@
 #include <cassert>
 #include <vector>
 #include <chrono>
+#include <atomic>
 
 #include "./BrandesVCSR.h"
 
@@ -19,7 +20,8 @@ namespace brandes {
           const VertexList& voff,
           const VertexList& ptr,
           const VertexList& adj,
-          const std::vector<int>& weight
+          const std::vector<int>& weight,
+          std::atomic_int& source_dispatch
           ) const {
         MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n",
             1 << ctx.kWGroupLog2_);
@@ -117,7 +119,8 @@ namespace brandes {
         k_sum.setArg(5, delta_cl);
         k_sum.setArg(6, bc_cl);
 
-        for (int source = 0; source < n; source++) {
+        int source;
+        while ((source = source_dispatch++) < n) {
           k_source.setArg(1, source);
           q.enqueueNDRangeKernel(k_source, cl::NullRange, n_global, local);
 
