@@ -23,6 +23,7 @@ namespace brandes {
           const Return __pass__ weight,
           std::atomic_int& source_dispatch
           ) const {
+        typedef typename Return::value_type FloatType;
         MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n",
             1 << ctx.kWGroupLog2_);
         MICROPROF_START(device_wait);
@@ -54,11 +55,14 @@ namespace brandes {
         q.enqueueWriteBuffer(adj_cl, false, 0, bytes(adj), adj.data());
         cl::Buffer weight_cl(acc.context_, CL_MEM_READ_ONLY, bytes(weight));
         q.enqueueWriteBuffer(weight_cl, false, 0, bytes(weight), weight.data());
-        cl::Buffer dist_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
-        cl::Buffer sigma_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
-        cl::Buffer delta_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
-        cl::Buffer red_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n1);
-        cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
+        const size_t kVertexListBytes = sizeof(VertexId) * n;
+        cl::Buffer dist_cl(acc.context_, CL_MEM_READ_WRITE, kVertexListBytes);
+        cl::Buffer sigma_cl(acc.context_, CL_MEM_READ_WRITE, kVertexListBytes);
+        const size_t kResultBytes = sizeof(FloatType) * n;
+        cl::Buffer delta_cl(acc.context_, CL_MEM_READ_WRITE, kResultBytes);
+        const size_t kReductBytes = sizeof(FloatType) * n1;
+        cl::Buffer red_cl(acc.context_, CL_MEM_READ_WRITE, kReductBytes);
+        cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, kResultBytes);
         MICROPROF_END(graph_to_gpu);
 
         MICROBENCH_TIMEPOINT(starting_kernels);
@@ -119,13 +123,13 @@ namespace brandes {
         k_sum.setArg(5, delta_cl);
         k_sum.setArg(6, bc_cl);
 
-        int source;
+        VertexId source;
         while ((source = source_dispatch++) < n) {
           k_source.setArg(1, source);
           q.enqueueNDRangeKernel(k_source, cl::NullRange, n_global, local);
 
           bool proceed;
-          int curr_dist = 0;
+          VertexId curr_dist = 0;
           do {
             proceed = false;
             q.enqueueWriteBuffer(proceed_cl, false, 0, sizeof(bool), &proceed);

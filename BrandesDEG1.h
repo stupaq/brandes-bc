@@ -21,7 +21,7 @@ namespace brandes {
         const VertexId n = ptr.size() - 1;
         MICROPROF_START(deg1_reduction);
         Return bc(n, 0.0f), weight(n, 1.0f);
-        std::vector<int> deg(n), ccsz(n);
+        VertexList deg(n), ccsz(n);
         VertexList queue(n), newind(n, 1);
         auto qfront = queue.begin(), qback = queue.begin();
         for (VertexId i = 0; i < n; i++) {

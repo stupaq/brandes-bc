@@ -23,7 +23,7 @@ namespace brandes {
       const VertexId n = ptr.size() - 1;
       Return bc(n, 0.0f), delta(n);
       VertexList queue(n);
-      std::vector<int> dist(n), sigma(n);
+      VertexList dist(n), sigma(n);
       VertexId source, processed_count = 0;
       while ((source = (*source_dispatch)++) < n) {
         auto qfront = queue.begin(), qback = qfront;

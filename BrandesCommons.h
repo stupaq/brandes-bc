@@ -18,28 +18,15 @@
 namespace brandes {
   using mycl::Accelerator;
 
+  typedef cl_int VertexId;
+  typedef std::vector<VertexId> VertexList;
+
   struct Context {
     std::future<Accelerator> dev_future_;
     const int kMDegLog2_;
     const int kWGroupLog2_;
     const int kCPUJobs_;
     const bool kUseGPU_;
-  };
-
-  typedef cl_int VertexId;
-  typedef std::vector<VertexId> VertexList;
-
-  struct Identity {
-    inline int operator[](int x) const {
-      return x;
-    }
-  };
-
-  template<int kVal> struct Constant {
-    inline int operator[](int x) const {
-      SUPPRESS_UNUSED(x);
-      return kVal;
-    }
   };
 
 }  // namespace brandes

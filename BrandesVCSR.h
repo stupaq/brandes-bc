@@ -43,7 +43,7 @@ namespace brandes {
             vmap.push_back(ind);
             voff.push_back(0);
           } else {
-            for (int off = 0; off < vcnt; off++) {
+            for (VertexId off = 0; off < vcnt; off++) {
               vmap.push_back(ind);
               voff.push_back(off);
             }
@@ -67,7 +67,7 @@ namespace brandes {
           } else {
             assert(voff[vind + 1] == 0);
             if (ptr[ind + 1] != ptr[ind]) {
-              const int kMDeg = 1 << ctx.kMDegLog2_;
+              const VertexId kMDeg = 1 << ctx.kMDegLog2_;
               assert(voff[vind] + 1 == (deg + kMDeg - 1) / kMDeg);
             }
           }

@@ -30,7 +30,7 @@ namespace brandes {
           sum += tmp;
         }
         assert((size_t) sum == 2 * E.size());
-        std::vector<int> alloc(n);
+        VertexList alloc(n);
         for (auto e : E) {
           adj[ptr[e.v1_] + alloc[e.v1_]++] = e.v2_;
           adj[ptr[e.v2_] + alloc[e.v2_]++] = e.v1_;

@@ -29,11 +29,11 @@ namespace brandes {
         }
         PRINT_STATS("biggest component\t%d / %d = %f\n", maxcs, ccs.back(),
             static_cast<float>(maxcs) / ccs.back());
-        const int low_thr = 2, big_thr = 1 << ctx.kMDegLog2_;
-        int low_count = 0, big_count = 0;
+        const VertexId low_thr = 2, big_thr = 1 << ctx.kMDegLog2_;
+        VertexId low_count = 0, big_count = 0;
         VertexId last_p = - (low_thr + big_thr) / 2;
         for (auto p : ptr) {
-          int deg = p - last_p;
+          VertexId deg = p - last_p;
           if (deg < low_thr) {
             low_count++;
           }
