@@ -16,11 +16,11 @@ namespace brandes {
     template<typename Return>
       inline Return cont(
           Context& ctx,
-          const VertexList& vmap,
-          const VertexList& voff,
-          const VertexList& ptr,
-          const VertexList& adj,
-          const Return& weight,
+          const VertexList __pass__ vmap,
+          const VertexList __pass__ voff,
+          const VertexList __pass__ ptr,
+          const VertexList __pass__ adj,
+          const Return __pass__ weight,
           std::atomic_int& source_dispatch
           ) const {
         MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n",

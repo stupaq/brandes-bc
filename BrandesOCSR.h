@@ -13,8 +13,8 @@ namespace brandes {
     template<typename Return>
       inline Return cont(
           Context& ctx,
-          const VertexList& ptr,
-          const VertexList& adj
+          const VertexList __pass__ ptr,
+          const VertexList __pass__ adj
           ) const {
         MICROPROF_START(bfs_ordering);
         const VertexId n = ptr.size() - 1;
@@ -96,8 +96,8 @@ namespace brandes {
     template<typename Return>
       inline Return cont(
           Context& ctx,
-          const VertexList& ptr,
-          const VertexList& adj
+          const VertexList __pass__ ptr,
+          const VertexList __pass__ adj
           ) const {
         MICROPROF_START(bfs_ordering);
         const VertexId n = ptr.size() - 1;

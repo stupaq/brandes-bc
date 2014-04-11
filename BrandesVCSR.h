@@ -22,9 +22,9 @@ namespace brandes {
     template<typename Return, typename Dispatch>
       inline Return cont(
           Context& ctx,
-          const VertexList& ptr,
-          const VertexList& adj,
-          const Return& weight,
+          const VertexList __pass__ ptr,
+          const VertexList __pass__ adj,
+          const Return __pass__ weight,
           Dispatch& dispatch
           ) const {
         MICROPROF_INFO("CONFIGURATION:\tvirtualized deg\t%d\n",

@@ -13,9 +13,9 @@ namespace brandes {
 
   template<typename Return>
     static inline Return bc_cpu_worker(
-        const VertexList& ptr,
-        const VertexList& adj,
-        const Return& weight,
+        const VertexList __pass__ ptr,
+        const VertexList __pass__ adj,
+        const Return __pass__ weight,
         /* This sounds like a bug in stdlib++, I couldn't pass atomic by
          * reference to std::async task... */
         std::atomic_int* source_dispatch
@@ -88,9 +88,9 @@ namespace brandes {
     template<typename Return>
       inline Return cont(
           Context& ctx,
-          const VertexList& ptr,
-          const VertexList& adj,
-          const Return& weight
+          const VertexList __pass__ ptr,
+          const VertexList __pass__ adj,
+          const Return __pass__ weight
           ) const {
         assert(ctx.kUseGPU_ || ctx.kCPUJobs_ > 0);
         MICROPROF_INFO("CONFIGURATION:\tshould use GPU\t%d\n", ctx.kUseGPU_);

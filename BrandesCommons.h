@@ -9,6 +9,10 @@
 #include "./MicroBench.h"
 #include "./MyCL.h"
 
+/* This is not very important since entire continuation gets inlined and
+ * compiler proves lack  of aliasing by itself. */
+#define __pass__ &__restrict__
+
 #define CONT_BIND(...) Cont().template cont<Return>(__VA_ARGS__)
 
 namespace brandes {

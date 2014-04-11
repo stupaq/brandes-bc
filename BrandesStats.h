@@ -17,9 +17,9 @@ namespace brandes {
     template<typename Return>
       inline Return cont(
           Context& ctx,
-          VertexList& ptr,
-          VertexList& adj,
-          VertexList& ccs
+          VertexList __pass__ ptr,
+          VertexList __pass__ adj,
+          VertexList __pass__ ccs
           ) const {
         MICROPROF_START(statistics);
         VertexId lastc = 0, maxcs = 0;

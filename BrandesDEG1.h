@@ -13,9 +13,9 @@ namespace brandes {
     template<typename Return>
       inline Return cont(
           Context& ctx,
-          VertexList& ptr,
-          VertexList& adj,
-          const VertexList& ccs
+          VertexList __pass__ ptr,
+          VertexList __pass__ adj,
+          const VertexList __pass__ ccs
           ) const {
         typedef typename Return::value_type FloatType;
         const VertexId n = ptr.size() - 1;
@@ -121,9 +121,9 @@ namespace brandes {
     template<typename Return>
       inline Return cont(
           Context& ctx,
-          VertexList& ptr,
-          VertexList& adj,
-          const VertexList&
+          VertexList __pass__ ptr,
+          VertexList __pass__ adj,
+          const VertexList __pass__
           ) const {
         const VertexId n = ptr.size() - 1;
         // TODO(stupaq) sir, it can be done better
