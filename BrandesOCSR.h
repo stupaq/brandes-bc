@@ -11,8 +11,11 @@ namespace brandes {
 
   template<typename Cont> struct ocsr_create {
     template<typename Return>
-      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj)
-      const {
+      inline Return cont(
+          Context& ctx,
+          const VertexList& ptr,
+          const VertexList& adj
+          ) const {
         MICROPROF_START(bfs_ordering);
         const VertexId n = ptr.size() - 1;
         VertexList bfsno(n, -1), queue(n), ccs;
@@ -91,8 +94,11 @@ namespace brandes {
 
   template<typename Cont> struct ocsr_pass {
     template<typename Return>
-      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj)
-      const {
+      inline Return cont(
+          Context& ctx,
+          const VertexList& ptr,
+          const VertexList& adj
+          ) const {
         MICROPROF_START(bfs_ordering);
         const VertexId n = ptr.size() - 1;
         VertexList ccs = { 0, n };

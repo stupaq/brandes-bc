@@ -20,8 +20,12 @@ namespace brandes {
 
   template<typename Cont> struct vcsr_create {
     template<typename Return, typename Weights>
-      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj,
-          Weights& weight, VertexList& ccs) const {
+      inline Return cont(
+          Context& ctx,
+          const VertexList& ptr,
+          const VertexList& adj,
+          const Weights& weight
+          ) const {
         MICROPROF_INFO("CONFIGURATION:\tvirtualized deg\t%d\n",
             1 << ctx.kMDegLog2_);
         MICROPROF_START(virtualization);
@@ -69,7 +73,7 @@ namespace brandes {
         }
 #endif  // NDEBUG
         MICROPROF_END(virtualization);
-        return CONT_BIND(ctx, ptr, adj, weight, vmap, voff, ccs);
+        return CONT_BIND(ctx, vmap, voff, ptr, adj, weight);
       }
   };
 

@@ -11,7 +11,11 @@ namespace brandes {
 
   template<typename Cont> struct csr_create {
     template<typename Return>
-      inline Return cont(Context& ctx, const VertexId n, EdgeList& E) const {
+      inline Return cont(
+          Context& ctx,
+          const VertexId n,
+          const EdgeList& E
+          ) const {
         MICROPROF_START(adjacency);
         VertexList ptr(n + 1), adj(2 * E.size());
         for (auto e : E) {

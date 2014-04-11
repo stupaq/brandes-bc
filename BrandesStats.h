@@ -15,8 +15,12 @@ namespace brandes {
 
   template<typename Cont> struct statistics {
     template<typename Return>
-      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj,
-          VertexList& ccs) const {
+      inline Return cont(
+          Context& ctx,
+          VertexList& ptr,
+          VertexList& adj,
+          VertexList& ccs
+          ) const {
         MICROPROF_START(statistics);
         VertexId lastc = 0, maxcs = 0;
         for (auto c : ccs) {

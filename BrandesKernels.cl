@@ -19,11 +19,14 @@ __kernel void vcsr_init_n(
 
 __kernel void vcsr_init_n1(
     const int global_id_range,
+    const int n1,
     __global int* vmap,
     __global int* voff,
     __global int* rmap
     ) {
   const int my_vi = get_global_id(0);
+  /* Note that in this kernel global_id_range == n1 + 1, in case you needed n1,
+   * there is a separate argument (for compatibility). */
   if (my_vi < global_id_range) {
     if (voff[my_vi] == 0) {
       rmap[vmap[my_vi]] = my_vi;

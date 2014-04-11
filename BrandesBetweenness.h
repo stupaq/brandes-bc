@@ -13,9 +13,14 @@ namespace brandes {
 
   struct betweenness {
     template<typename Return>
-      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj,
-          std::vector<int> weight, VertexList& vmap, VertexList& voff,
-          VertexList&) const {
+      inline Return cont(
+          Context& ctx,
+          const VertexList& vmap,
+          const VertexList& voff,
+          const VertexList& ptr,
+          const VertexList& adj,
+          const std::vector<int>& weight
+          ) const {
         MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n",
             1 << ctx.kWGroupLog2_);
         MICROPROF_START(device_wait);
@@ -37,21 +42,21 @@ namespace brandes {
         MICROPROF_START(graph_to_gpu);
         cl::Buffer proceed_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(bool));
         cl::Buffer vmap_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vmap));
+        q.enqueueWriteBuffer(vmap_cl, false, 0, bytes(vmap), vmap.data());
         cl::Buffer voff_cl(acc.context_, CL_MEM_READ_ONLY, bytes(voff));
+        q.enqueueWriteBuffer(voff_cl, false, 0, bytes(voff), voff.data());
         cl::Buffer rmap_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vmap));
         cl::Buffer ptr_cl(acc.context_, CL_MEM_READ_ONLY, bytes(ptr));
+        q.enqueueWriteBuffer(ptr_cl, false, 0, bytes(ptr), ptr.data());
         cl::Buffer adj_cl(acc.context_, CL_MEM_READ_ONLY, bytes(adj));
+        q.enqueueWriteBuffer(adj_cl, false, 0, bytes(adj), adj.data());
         cl::Buffer weight_cl(acc.context_, CL_MEM_READ_ONLY, bytes(weight));
+        q.enqueueWriteBuffer(weight_cl, false, 0, bytes(weight), weight.data());
         cl::Buffer dist_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
         cl::Buffer sigma_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(int) * n);
         cl::Buffer delta_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
         cl::Buffer red_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n1);
         cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(float) * n);
-        q.enqueueWriteBuffer(vmap_cl, false, 0, bytes(vmap), vmap.data());
-        q.enqueueWriteBuffer(voff_cl, false, 0, bytes(voff), voff.data());
-        q.enqueueWriteBuffer(ptr_cl, false, 0, bytes(ptr), ptr.data());
-        q.enqueueWriteBuffer(adj_cl, false, 0, bytes(adj), adj.data());
-        q.enqueueWriteBuffer(weight_cl, false, 0, bytes(weight), weight.data());
         MICROPROF_END(graph_to_gpu);
 
         MICROBENCH_TIMEPOINT(starting_kernels);
@@ -64,9 +69,10 @@ namespace brandes {
         { /* Note that n1_global range is prepared for one extra thread. */
           cl::Kernel k_init_n1(acc.program_, "vcsr_init_n1");
           k_init_n1.setArg(0, n1 + 1);
-          k_init_n1.setArg(1, vmap_cl);
-          k_init_n1.setArg(2, voff_cl);
-          k_init_n1.setArg(3, rmap_cl);
+          k_init_n1.setArg(1, n1);
+          k_init_n1.setArg(2, vmap_cl);
+          k_init_n1.setArg(3, voff_cl);
+          k_init_n1.setArg(4, rmap_cl);
           q.enqueueNDRangeKernel(k_init_n1, cl::NullRange, n1_global, local);
         }
 
@@ -150,7 +156,6 @@ namespace brandes {
             std::chrono::milliseconds);
         MICROBENCH_REPORT(moving_data, fetched_results, stderr, "%ld\n",
             std::chrono::milliseconds);
-
         return bc;
       }
   };

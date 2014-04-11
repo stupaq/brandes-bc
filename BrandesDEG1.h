@@ -11,8 +11,12 @@ namespace brandes {
 
   template<typename Cont> struct deg1_reduce {
     template<typename Return>
-      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj,
-          VertexList& ccs) const {
+      inline Return cont(
+          Context& ctx,
+          VertexList& ptr,
+          VertexList& adj,
+          const VertexList& ccs
+          ) const {
         const VertexId n = ptr.size() - 1;
         MICROPROF_START(deg1_reduction);
         std::vector<float> bc(n, 0.0f);
@@ -96,8 +100,8 @@ namespace brandes {
         assert(weight.size() == ptr.size() - 1);
         MICROPROF_END(deg1_reduction);
         if (adj.size() > 0) {
-          // TODO(stupaq) ccs needs serious fixup
-          auto bc1 = CONT_BIND(ctx, ptr, adj, weight, ccs);
+          /* We don't fix ccs because we don't use it anymore. */
+          auto bc1 = CONT_BIND(ctx, ptr, adj, weight);
           MICROPROF_START(deg1_expansion);
           for (VertexId oind = 0; oind < n; oind++) {
             if (newind[oind] != -1) {
@@ -114,12 +118,16 @@ namespace brandes {
 
   template<typename Cont> struct deg1_pass {
     template<typename Return>
-      inline Return cont(Context& ctx, VertexList& ptr, VertexList& adj,
-          VertexList& ccs) const {
+      inline Return cont(
+          Context& ctx,
+          VertexList& ptr,
+          VertexList& adj,
+          const VertexList&
+          ) const {
         const VertexId n = ptr.size() - 1;
         // TODO(stupaq) sir, it can be done better
         std::vector<int> weight(n, 1);
-        return CONT_BIND(ctx, ptr, adj, weight, ccs);
+        return CONT_BIND(ctx, ptr, adj, weight);
       }
   };
 
