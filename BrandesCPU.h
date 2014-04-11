@@ -100,13 +100,13 @@ namespace brandes {
         MICROPROF_WARN(!source_dispatch.is_lock_free(),
             "Atomic integer is not lock free.");
         std::vector<std::future<Return>> cpu_jobs;
-        MICROPROF_START(cpu_starting_jobs);
+        MICROPROF_START(cpu_scheduling);
         for (int i = 0; i < ctx.kCPUJobs_; i++) {
           cpu_jobs.push_back(std::async(std::launch::async,
                 brandes::bc_cpu_worker<Return>,
                 ptr, adj, weight, &source_dispatch));
         }
-        MICROPROF_END(cpu_starting_jobs);
+        MICROPROF_END(cpu_scheduling);
         Return bc = ctx.kUseGPU_
           ? CONT_BIND(ctx, ptr, adj, weight, source_dispatch)
           : Return(n, 0.0f);

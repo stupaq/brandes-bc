@@ -18,6 +18,22 @@
 #define MYCL_ERROR_CHECKING
 #endif
 
+#ifndef DEFAULT_MDEG_LOG2
+#define DEFAULT_MDEG_LOG2 4
+#endif
+
+#ifndef DEFAULT_WGROUP_LOG2
+#define DEFAULT_WGROUP_LOG2 7
+#endif
+
+#ifndef DEFAULT_CPU_JOBS
+#define DEFAULT_CPU_JOBS 3
+#endif
+
+#ifndef DEFAULT_USE_GPU
+#define DEFAULT_USE_GPU true
+#endif
+
 // FIXME(stupaq) other options?
 #define ALGORITHM_PIPE\
   csr_create<ocsr_create<statistics<deg1_reduce<cpu_driver<vcsr_create<betweenness>>>>>>  // NOLINT(whitespace/line_length)
@@ -51,16 +67,17 @@ static inline int log2ceil(int x) {
 }
 
 int main(int argc, const char* argv[]) {
+  using boost::lexical_cast;
   using namespace brandes;  // NOLINT(build/namespaces)
   MICROPROF_START(main_total);
   assert(argc > 2); SUPPRESS_UNUSED(argc);
 
   Context ctx = {
     std::async(std::launch::async, mycl::init_device),
-    argc > 3 ? log2ceil(boost::lexical_cast<int>(argv[3])) : 4,
-    argc > 4 ? log2ceil(boost::lexical_cast<int>(argv[4])) : 7,
-    argc > 5 ? boost::lexical_cast<int>(argv[5]) : 3,
-    argc > 6 ? boost::lexical_cast<bool>(argv[6]) : true,
+    argc > 3 ? log2ceil(lexical_cast<int>(argv[3])) : DEFAULT_MDEG_LOG2,
+    argc > 4 ? log2ceil(lexical_cast<int>(argv[4])) : DEFAULT_WGROUP_LOG2,
+    argc > 5 ? lexical_cast<int>(argv[5]) : DEFAULT_CPU_JOBS,
+    argc > 6 ? lexical_cast<bool>(argv[6]) : DEFAULT_USE_GPU,
   };
 #ifdef MYCL_ERROR_CHECKING
   try {
