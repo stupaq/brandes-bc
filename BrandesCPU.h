@@ -48,6 +48,7 @@ namespace brandes {
             }
             if (dist[w] == dist[v] + 1) {
               sigma[w] += sigma[v];
+              assert(sigma[w] >= 0);
             }
           }
         }
