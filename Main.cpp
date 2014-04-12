@@ -1,5 +1,11 @@
 /** @author Mateusz Machalica */
 
+#include <boost/preprocessor/stringize.hpp>
+
+#ifndef OPTIMIZE
+#define OPTIMIZE 3
+#endif
+
 #if   OPTIMIZE == 3
 #pragma message "Optimized build, no error checking."
 #define NDEBUG
@@ -34,9 +40,25 @@
 #define DEFAULT_USE_GPU true
 #endif
 
-// FIXME(stupaq) other options?
+#if   !defined(NO_DEG1_REDUCTION) && defined(NO_BFS_SORT)
+#error Illegal combination, DEG1 reduction requires BFS ordering.
+#endif
+
+#ifndef NO_DEG1_REDUCTION
+#define ALGORITHM_DEG1 deg1_create
+#else
+#define ALGORITHM_DEG1 deg1_pass
+#endif
+
+#ifndef NO_BFS_SORT
+#define ALGORITHM_ORDER ocsr_create
+#else
+#define ALGORITHM_ORDER ocsr_pass
+#endif
+
 #define ALGORITHM_PIPE\
-  csr_create<ocsr_create<statistics<deg1_reduce<cpu_driver<vcsr_create<betweenness>>>>>>  // NOLINT(whitespace/line_length)
+  csr_create<ALGORITHM_ORDER<statistics<ALGORITHM_DEG1<cpu_driver<vcsr_create<betweenness>>>>>>  // NOLINT(whitespace/line_length)
+#pragma message "Algorithm pipe: " BOOST_PP_STRINGIZE(ALGORITHM_PIPE)
 
 #include <boost/lexical_cast.hpp>
 
