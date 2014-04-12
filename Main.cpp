@@ -49,19 +49,19 @@
 #ifndef NO_DEG1
 #define ALGORITHM_DEG1 deg1_reduce
 #else
-#pragma message "Will not apply DEG1 transformation."
+#pragma message "The DEG1 transformation enabled."
 #define ALGORITHM_DEG1 deg1_pass
 #endif
 
 #ifndef NO_BFS
 #define ALGORITHM_ORDER ocsr_create
 #else
-#pragma message "Will not apply BFS ordering."
+#pragma message "BFS ordering enabled."
 #define ALGORITHM_ORDER ocsr_pass
 #endif
 
 #ifndef NO_STATS
-#pragma message "Will collect statistics about input graph."
+#pragma message "Graph statistics collection enabled."
 #define ALGORITHM_STATS statistics
 #else
 #define ALGORITHM_STATS no_stats
@@ -69,7 +69,7 @@
 
 #define ALGORITHM_PIPE\
   csr_create<ALGORITHM_ORDER<ALGORITHM_STATS<ALGORITHM_DEG1<cpu_driver<vcsr_create<betweenness>>>>>>  // NOLINT(whitespace/line_length)
-#pragma message "Algorithm pipe: " BOOST_PP_STRINGIZE(ALGORITHM_PIPE)
+#pragma message "Final algorithm pipe: " BOOST_PP_STRINGIZE(ALGORITHM_PIPE)
 
 #include <boost/lexical_cast.hpp>
 
