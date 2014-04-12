@@ -97,8 +97,8 @@ namespace brandes {
     template<typename Return, typename VertexList>
       inline Return cont(
           Context& ctx,
-          const VertexList __pass__ ptr,
-          const VertexList __pass__ adj
+          VertexList __pass__ ptr,
+          VertexList __pass__ adj
           ) const {
         typedef typename VertexList::value_type VertexId;
         MICROPROF_START(bfs_ordering);

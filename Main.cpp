@@ -49,16 +49,19 @@
 #ifndef NO_DEG1
 #define ALGORITHM_DEG1 deg1_reduce
 #else
+#pragma message "Will not apply DEG1 transformation."
 #define ALGORITHM_DEG1 deg1_pass
 #endif
 
 #ifndef NO_BFS
 #define ALGORITHM_ORDER ocsr_create
 #else
+#pragma message "Will not apply BFS ordering."
 #define ALGORITHM_ORDER ocsr_pass
 #endif
 
 #ifndef NO_STATS
+#pragma message "Will collect statistics about input graph."
 #define ALGORITHM_STATS statistics
 #else
 #define ALGORITHM_STATS no_stats
