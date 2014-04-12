@@ -9,10 +9,12 @@
 #if   OPTIMIZE == 3
 #pragma message "Optimized build, no error checking."
 #define NDEBUG
+#define NO_STATS
 #elif OPTIMIZE == 2
 #pragma message "Partially optimized build, device error checking."
 #define NDEBUG
 #define MYCL_ERROR_CHECKING
+#define NO_STATS
 #elif OPTIMIZE == 1
 #pragma message "Microbenchmarks optimized build."
 #define NDEBUG
@@ -40,24 +42,30 @@
 #define DEFAULT_USE_GPU true
 #endif
 
-#if   !defined(NO_DEG1_REDUCTION) && defined(NO_BFS_SORT)
+#if   !defined(NO_DEG1) && defined(NO_BFS)
 #error Illegal combination, DEG1 reduction requires BFS ordering.
 #endif
 
-#ifndef NO_DEG1_REDUCTION
-#define ALGORITHM_DEG1 deg1_create
+#ifndef NO_DEG1
+#define ALGORITHM_DEG1 deg1_reduce
 #else
 #define ALGORITHM_DEG1 deg1_pass
 #endif
 
-#ifndef NO_BFS_SORT
+#ifndef NO_BFS
 #define ALGORITHM_ORDER ocsr_create
 #else
 #define ALGORITHM_ORDER ocsr_pass
 #endif
 
+#ifndef NO_STATS
+#define ALGORITHM_STATS statistics
+#else
+#define ALGORITHM_STATS no_stats
+#endif
+
 #define ALGORITHM_PIPE\
-  csr_create<ALGORITHM_ORDER<statistics<ALGORITHM_DEG1<cpu_driver<vcsr_create<betweenness>>>>>>  // NOLINT(whitespace/line_length)
+  csr_create<ALGORITHM_ORDER<ALGORITHM_STATS<ALGORITHM_DEG1<cpu_driver<vcsr_create<betweenness>>>>>>  // NOLINT(whitespace/line_length)
 #pragma message "Algorithm pipe: " BOOST_PP_STRINGIZE(ALGORITHM_PIPE)
 
 #include <boost/lexical_cast.hpp>

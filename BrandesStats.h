@@ -52,6 +52,18 @@ namespace brandes {
       }
   };
 
+  template<typename Cont> struct no_stats {
+    template<typename Return, typename VertexList>
+      inline Return cont(
+          Context& ctx,
+          VertexList __pass__ ptr,
+          VertexList __pass__ adj,
+          VertexList __pass__ ccs
+          ) const {
+        return CONT_BIND(ctx, ptr, adj, ccs);
+      }
+  };
+
 }  // namespace brandes
 
 #undef PRINT_STATS
