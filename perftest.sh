@@ -6,6 +6,12 @@ LOG_FILE=${LOG_FILE:-"$HOME/perftest.log"}
 OUT_FILE=${OUT_FILE:-"$HOME/perftest.out"}
 BRANDES=${BRANDES:-"./brandes"}
 
+if [[ $1 == '-c' ]]; then
+  echo "Removing $LOG_FILE and $OUT_FILE."
+  rm -f "$LOG_FILE" "$OUT_FILE"
+  exit 0
+fi
+
 touch "$LOG_FILE"
 exec >  >(tee -a "$LOG_FILE")
 exec 2> >(tee -a "$LOG_FILE" >&2)
@@ -15,7 +21,7 @@ $BRANDES
 for graph in "$@"; do
   echo -ne "`basename $graph` \t "
   ts=$(date +%s%N)
-  $BRANDES $graph $OUT_FILE &>/dev/null
+  $BRANDES "$graph" "$OUT_FILE" &>/dev/null
   te=$(date +%s%N)
   echo "$((($te-$ts)/1000000))"
 done
