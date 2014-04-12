@@ -37,6 +37,7 @@ __kernel void vcsr_init_n1(
 __kernel void vcsr_init_source(
     const int global_id_range,
     const int source,
+    __global bool* proceed,
     __global int* dist,
     __global int* sigma
     ) {
@@ -45,6 +46,7 @@ __kernel void vcsr_init_source(
     dist[my_i] = select(-1, 0, source == my_i);
     sigma[my_i] = select(0, 1, source == my_i);
   }
+  *proceed = false;
 }
 
 __kernel void vcsr_forward(
@@ -56,38 +58,60 @@ __kernel void vcsr_forward(
     __global int* voff,
     __global int* ptr,
     __global int* adj,
-    __global float* weight,
     __global int* dist,
     __global int* sigma,
-    __global float* delta
+    __global int* red
     ) {
   const int my_vi = get_global_id(0);
   if (my_vi < global_id_range) {
     const int my_map = vmap[my_vi];
-    const int my_dist = dist[my_map];
-    if (my_dist == curr_dist) {
+    if (dist[my_map] == curr_dist) {
       int my_ptr = ptr[my_map];
       const int next_ptr = ptr[my_map + 1];
       const int my_cnt = divide_up(next_ptr - my_ptr, kMDegLog2);
       const int my_off = voff[my_vi];
       my_ptr += my_off;
-      const int my_sigma = sigma[my_map];
+      float sum = 0.0f;
       for (; my_ptr < next_ptr; my_ptr += my_cnt) {
         const int other_i = adj[my_ptr];
         int other_d = dist[other_i];
         if (other_d == -1) {
-          dist[other_i] = other_d = curr_dist + 1;
+          dist[other_i] = curr_dist + 1;
           *proceed = true;
-        }
-        if (other_d == curr_dist + 1 && my_sigma != 0.0f) {
-          atomic_add(&sigma[other_i], my_sigma);
+        } else if (other_d == curr_dist - 1) {
+          sum += sigma[other_i];
         }
       }
-      if (my_off == 0) {
-        delta[my_map] = weight[my_map] / my_sigma;
-      }
+      red[my_vi] = sum;
     }
   }
+}
+
+__kernel void vcsr_forward_reduce(
+    const int global_id_range,
+    const int curr_dist,
+    __global bool* proceed,
+    __global int* rmap,
+    __global float* weight,
+    __global int* dist,
+    __global int* sigma,
+    __global float* delta,
+    __global int* red
+    ) {
+  const int my_i = get_global_id(0);
+  if (my_i < global_id_range) {
+    if (dist[my_i] == curr_dist) {
+      int next_i = rmap[my_i];
+      const int last_i = rmap[my_i + 1];
+      float sum = 0.0f;
+      for (; next_i < last_i; next_i++) {
+        sum += red[next_i];
+      }
+      sigma[my_i] = sum;
+      delta[my_i] = weight[my_i] / sum;
+    }
+  }
+  *proceed = false;
 }
 
 __kernel void vcsr_backward(

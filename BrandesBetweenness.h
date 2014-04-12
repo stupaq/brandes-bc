@@ -93,8 +93,9 @@ namespace brandes {
         /** We can move some arguments setting outside of the loop. */
         cl::Kernel k_source(acc.program_, "vcsr_init_source");
         k_source.setArg(0, n);
-        k_source.setArg(2, dist_cl);
-        k_source.setArg(3, sigma_cl);
+        k_source.setArg(2, proceed_cl);
+        k_source.setArg(3, dist_cl);
+        k_source.setArg(4, sigma_cl);
         cl::Kernel k_fwd(acc.program_, "vcsr_forward");
         k_fwd.setArg(0, n1);
         k_fwd.setArg(2, ctx.kMDegLog2_);
@@ -103,10 +104,18 @@ namespace brandes {
         k_fwd.setArg(5, voff_cl);
         k_fwd.setArg(6, ptr_cl);
         k_fwd.setArg(7, adj_cl);
-        k_fwd.setArg(8, weight_cl);
-        k_fwd.setArg(9, dist_cl);
-        k_fwd.setArg(10, sigma_cl);
-        k_fwd.setArg(11, delta_cl);
+        k_fwd.setArg(8, dist_cl);
+        k_fwd.setArg(9, sigma_cl);
+        k_fwd.setArg(10, red_cl);
+        cl::Kernel k_fwd_red(acc.program_, "vcsr_forward_reduce");
+        k_fwd_red.setArg(0, n);
+        k_fwd_red.setArg(2, proceed_cl);
+        k_fwd_red.setArg(3, rmap_cl);
+        k_fwd_red.setArg(4, weight_cl);
+        k_fwd_red.setArg(5, dist_cl);
+        k_fwd_red.setArg(6, sigma_cl);
+        k_fwd_red.setArg(7, delta_cl);
+        k_fwd_red.setArg(8, red_cl);
         cl::Kernel k_back(acc.program_, "vcsr_backward");
         k_back.setArg(0, n1);
         k_back.setArg(2, ctx.kMDegLog2_);
@@ -139,12 +148,15 @@ namespace brandes {
           bool proceed;
           VertexId curr_dist = 0;
           do {
-            proceed = false;
-            q.enqueueWriteBuffer(proceed_cl, false, 0, sizeof(bool), &proceed);
-            k_fwd.setArg(1, curr_dist++);
+            if (curr_dist > 0) {
+              q.enqueueNDRangeKernel(k_fwd_red, cl::NullRange, n_global, local);
+            }
+            k_fwd.setArg(1, curr_dist);
+            k_fwd_red.setArg(1, curr_dist);
             q.enqueueNDRangeKernel(k_fwd, cl::NullRange, n1_global, local);
             q.enqueueReadBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
             q.finish();
+            curr_dist++;
           } while (proceed);
 
           while (--curr_dist > 0) {
