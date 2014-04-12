@@ -99,7 +99,28 @@ static inline int log2ceil(int x) {
   return std::ceil(std::log2(x));
 }
 
+static void version() {
+  printf(
+      "OPTIMIZE=%d\n"
+      "DEFAULT_MDEG_LOG2=%d\n"
+      "DEFAULT_WGROUP_LOG2=%d\n"
+      "DEFAULT_CPU_JOBS=%d\n"
+      "DEFAULT_USE_GPU=%d\n"
+      "ALGORITHM_PIPE=%s\n",
+      OPTIMIZE,
+      DEFAULT_MDEG_LOG2,
+      DEFAULT_WGROUP_LOG2,
+      DEFAULT_CPU_JOBS,
+      DEFAULT_USE_GPU,
+      BOOST_PP_STRINGIZE(ALGORITHM_PIPE));
+  exit(0);
+}
+
 int main(int argc, const char* argv[]) {
+  if (argc == 1) {
+    version();
+  }
+
   using boost::lexical_cast;
   using namespace brandes;  // NOLINT(build/namespaces)
   MICROPROF_START(main_total);
