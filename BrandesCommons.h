@@ -18,9 +18,6 @@
 namespace brandes {
   using mycl::Accelerator;
 
-  typedef cl_int VertexId;
-  typedef std::vector<VertexId> VertexList;
-
   struct Context {
     std::future<Accelerator> dev_future_;
     const int kMDegLog2_;

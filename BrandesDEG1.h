@@ -10,14 +10,15 @@
 namespace brandes {
 
   template<typename Cont> struct deg1_reduce {
-    template<typename Return>
+    template<typename Return, typename VertexList>
       inline Return cont(
           Context& ctx,
           VertexList __pass__ ptr,
           VertexList __pass__ adj,
           const VertexList __pass__ ccs
           ) const {
-        typedef typename Return::value_type FloatType;
+        typedef typename VertexList::value_type VertexId;
+        typedef typename Return::value_type Result;
         const VertexId n = ptr.size() - 1;
         MICROPROF_START(deg1_reduction);
         Return bc(n, 0.0f), weight(n, 1.0f);
@@ -48,7 +49,7 @@ namespace brandes {
           if (deg[u] == 0) {
             newind[u] = 0;
           } else {
-            FloatType rest = static_cast<FloatType>(ccsz[u] - weight[u]);
+            Result rest = static_cast<Result>(ccsz[u] - weight[u]);
             bc[u] += rest * (weight[u] - 1);
             newind[u] = 0;
             auto next = adj.begin() + ptr[u];
@@ -118,13 +119,14 @@ namespace brandes {
   };
 
   template<typename Cont> struct deg1_pass {
-    template<typename Return>
+    template<typename Return, typename VertexList>
       inline Return cont(
           Context& ctx,
           VertexList __pass__ ptr,
           VertexList __pass__ adj,
           const VertexList __pass__
           ) const {
+        typedef typename VertexList::value_type VertexId;
         const VertexId n = ptr.size() - 1;
         // TODO(stupaq) sir, it can be done better
         Return weight(n, 1.0f);

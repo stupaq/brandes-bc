@@ -14,13 +14,14 @@
 namespace brandes {
 
   template<typename Cont> struct statistics {
-    template<typename Return>
+    template<typename Return, typename VertexList>
       inline Return cont(
           Context& ctx,
           VertexList __pass__ ptr,
           VertexList __pass__ adj,
           VertexList __pass__ ccs
           ) const {
+        typedef typename VertexList::value_type VertexId;
         MICROPROF_START(statistics);
         VertexId lastc = 0, maxcs = 0;
         for (auto c : ccs) {

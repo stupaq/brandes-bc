@@ -14,12 +14,12 @@
 namespace brandes {
 
   struct Edge {
+    typedef int VertexId;
     VertexId v1_;
     VertexId v2_;
   };
-  typedef std::vector<Edge> EdgeList;
 
-  template<typename Cont, typename Return>
+  template<typename Cont, typename Return = std::vector<float>>
     inline Return generic_read(Context& ctx, const char* file_path) {
       const size_t kEdgesInit = 1<<20;
       using boost::iostreams::mapped_file;
@@ -29,7 +29,7 @@ namespace brandes {
       using boost::spirit::ascii::blank;
       MICROPROF_START(reading_graph);
       mapped_file mf(file_path, mapped_file::readonly);
-      EdgeList E;
+      std::vector<Edge> E;
       E.reserve(kEdgesInit);
       {
         auto dat0 = mf.const_data(), dat1 = dat0 + mf.size();
@@ -37,7 +37,7 @@ namespace brandes {
         assert(r); SUPPRESS_UNUSED(r);
         assert(dat0 == dat1);
       }
-      VertexId n = 0;
+      Edge::VertexId n = 0;
       for (auto& e : E) {
         assert(e.v1_ < e.v2_);
         n = (n <= e.v2_) ? e.v2_ + 1 : n;
@@ -55,7 +55,7 @@ namespace brandes {
 }  // namespace brandes
 
 BOOST_FUSION_ADAPT_STRUCT(brandes::Edge,
-    (brandes::VertexId, v1_)
-    (brandes::VertexId, v2_))
+    (brandes::Edge::VertexId, v1_)
+    (brandes::Edge::VertexId, v2_))
 
 #endif  // BRANDESCOO_H_

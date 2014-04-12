@@ -11,7 +11,7 @@
 
 namespace brandes {
 
-  template<typename Return>
+  template<typename Return, typename VertexList>
     static inline Return bc_cpu_worker(
         const VertexList __pass__ ptr,
         const VertexList __pass__ adj,
@@ -20,6 +20,7 @@ namespace brandes {
          * reference to std::async task... */
         std::atomic_int* source_dispatch
         ) {
+      typedef typename VertexList::value_type VertexId;
       const VertexId n = ptr.size() - 1;
       Return bc(n, 0.0f), delta(n);
       VertexList queue(n);
@@ -58,7 +59,8 @@ namespace brandes {
         }
         /* Backward. */
         assert(qfront == qback);
-        auto sfront = std::reverse_iterator<VertexList::iterator>(qback),
+        typedef typename VertexList::iterator VertexIterator;
+        auto sfront = std::reverse_iterator<VertexIterator>(qback),
              sback = queue.rend();
         while (sfront != sback) {
           VertexId w = *sfront++;
@@ -86,13 +88,14 @@ namespace brandes {
     }
 
   template<typename Cont> struct cpu_driver {
-    template<typename Return>
+    template<typename Return, typename VertexList>
       inline Return cont(
           Context& ctx,
           const VertexList __pass__ ptr,
           const VertexList __pass__ adj,
           const Return __pass__ weight
           ) const {
+        typedef typename VertexList::value_type VertexId;
         assert(ctx.kUseGPU_ || ctx.kCPUJobs_ > 0);
         MICROPROF_INFO("CONFIGURATION:\tshould use GPU\t%d\n", ctx.kUseGPU_);
         MICROPROF_INFO("CONFIGURATION:\tCPU jobs count\t%d\n", ctx.kCPUJobs_);
@@ -104,7 +107,7 @@ namespace brandes {
         MICROPROF_START(cpu_scheduling);
         for (int i = 0; i < ctx.kCPUJobs_; i++) {
           cpu_jobs.push_back(std::async(std::launch::async,
-                brandes::bc_cpu_worker<Return>,
+                brandes::bc_cpu_worker<Return, VertexList>,
                 ptr, adj, weight, &source_dispatch));
         }
         MICROPROF_END(cpu_scheduling);

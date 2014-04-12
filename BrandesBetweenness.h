@@ -13,7 +13,7 @@ namespace brandes {
   using mycl::bytes;
 
   struct betweenness {
-    template<typename Return>
+    template<typename Return, typename VertexList>
       inline Return cont(
           Context& ctx,
           const VertexList __pass__ vmap,
@@ -23,13 +23,12 @@ namespace brandes {
           const Return __pass__ weight,
           std::atomic_int& source_dispatch
           ) const {
-        typedef typename Return::value_type FloatType;
-        MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n",
-            1 << ctx.kWGroupLog2_);
-        MICROPROF_START(device_wait);
-        Accelerator acc = ctx.dev_future_.get();
-        cl::CommandQueue& q = acc.queue_;
-        MICROPROF_END(device_wait);
+        typedef typename VertexList::value_type VertexId;
+        typedef typename Return::value_type Result;
+        static_assert(sizeof(VertexId) == sizeof(cl_int),
+            "VertexId type not compatible");
+        static_assert(sizeof(Result) == sizeof(cl_float),
+            "Result type not compatible");
 
         /* We prepare our ranges for one extra thread (for inits). */
         cl::NDRange local(1 << ctx.kWGroupLog2_);
@@ -40,6 +39,13 @@ namespace brandes {
         assert(vmap.back() == n);
         assert(voff.back() == 0);
         assert(ptr.back() == adj.size());
+
+        MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n",
+            1 << ctx.kWGroupLog2_);
+        MICROPROF_START(device_wait);
+        Accelerator acc = ctx.dev_future_.get();
+        cl::CommandQueue& q = acc.queue_;
+        MICROPROF_END(device_wait);
 
         MICROBENCH_TIMEPOINT(moving_data);
         MICROPROF_START(graph_to_gpu);
@@ -58,9 +64,9 @@ namespace brandes {
         const size_t kVertexListBytes = sizeof(VertexId) * n;
         cl::Buffer dist_cl(acc.context_, CL_MEM_READ_WRITE, kVertexListBytes);
         cl::Buffer sigma_cl(acc.context_, CL_MEM_READ_WRITE, kVertexListBytes);
-        const size_t kResultBytes = sizeof(FloatType) * n;
+        const size_t kResultBytes = sizeof(Result) * n;
         cl::Buffer delta_cl(acc.context_, CL_MEM_READ_WRITE, kResultBytes);
-        const size_t kReductBytes = sizeof(FloatType) * n1;
+        const size_t kReductBytes = sizeof(Result) * n1;
         cl::Buffer red_cl(acc.context_, CL_MEM_READ_WRITE, kReductBytes);
         cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, kResultBytes);
         MICROPROF_END(graph_to_gpu);

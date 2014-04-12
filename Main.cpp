@@ -82,7 +82,7 @@ int main(int argc, const char* argv[]) {
 #ifdef MYCL_ERROR_CHECKING
   try {
 #endif
-    auto res = generic_read<ALGORITHM_PIPE, std::vector<float>>(ctx, argv[1]);
+    auto res = generic_read<ALGORITHM_PIPE>(ctx, argv[1]);
     generic_write(res, argv[2]);
 #ifdef MYCL_ERROR_CHECKING
   } catch (cl::Error error) {

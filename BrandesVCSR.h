@@ -19,7 +19,7 @@ namespace brandes {
   }
 
   template<typename Cont> struct vcsr_create {
-    template<typename Return, typename Dispatch>
+    template<typename Return, typename VertexList, typename Dispatch>
       inline Return cont(
           Context& ctx,
           const VertexList __pass__ ptr,
@@ -27,6 +27,7 @@ namespace brandes {
           const Return __pass__ weight,
           Dispatch& dispatch
           ) const {
+        typedef typename VertexList::value_type VertexId;
         MICROPROF_INFO("CONFIGURATION:\tvirtualized deg\t%d\n",
             1 << ctx.kMDegLog2_);
         MICROPROF_START(virtualization);
