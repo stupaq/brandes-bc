@@ -106,11 +106,11 @@ __kernel void vcsr_backward(
   if (my_vi < global_id_range) {
     const int my_map = vmap[my_vi];
     if (dist[my_map] == curr_dist - 1) {
-      float sum = 0.0f;
       int my_ptr = ptr[my_map];
       const int next_ptr = ptr[my_map + 1];
       const int my_cnt = divide_up(next_ptr - my_ptr, kMDegLog2);
       my_ptr += voff[my_vi];
+      float sum = 0.0f;
       for (; my_ptr < next_ptr; my_ptr += my_cnt) {
         const int other_i = adj[my_ptr];
         if (dist[other_i] == curr_dist) {
@@ -133,9 +133,9 @@ __kernel void vcsr_backward_reduce(
   const int my_i = get_global_id(0);
   if (my_i < global_id_range) {
     if (dist[my_i] == curr_dist - 1) {
-      float sum = 0.0f;
       int next_i = rmap[my_i];
       const int last_i = rmap[my_i + 1];
+      float sum = 0.0f;
       for (; next_i < last_i; next_i++) {
         sum += red[next_i];
       }

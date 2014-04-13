@@ -6,6 +6,7 @@
 #include <vector>
 #include <chrono>
 #include <atomic>
+#include <algorithm>
 
 #include "./BrandesVCSR.h"
 
@@ -27,6 +28,8 @@ namespace brandes {
         typedef typename Return::value_type Result;
         static_assert(sizeof(VertexId) == sizeof(cl_int),
             "VertexId type not compatible");
+        static_assert(sizeof(SigmaInt) == sizeof(cl_int),
+            "SigmaInt type not compatible");
         static_assert(sizeof(Result) == sizeof(cl_float),
             "Result type not compatible");
 
@@ -61,14 +64,13 @@ namespace brandes {
         q.enqueueWriteBuffer(adj_cl, false, 0, bytes(adj), adj.data());
         cl::Buffer weight_cl(acc.context_, CL_MEM_READ_ONLY, bytes(weight));
         q.enqueueWriteBuffer(weight_cl, false, 0, bytes(weight), weight.data());
-        const size_t kVertexListBytes = sizeof(VertexId) * n;
-        cl::Buffer dist_cl(acc.context_, CL_MEM_READ_WRITE, kVertexListBytes);
-        cl::Buffer sigma_cl(acc.context_, CL_MEM_READ_WRITE, kVertexListBytes);
-        const size_t kResultBytes = sizeof(Result) * n;
-        cl::Buffer delta_cl(acc.context_, CL_MEM_READ_WRITE, kResultBytes);
-        const size_t kReductBytes = sizeof(Result) * n1;
-        cl::Buffer red_cl(acc.context_, CL_MEM_READ_WRITE, kReductBytes);
-        cl::Buffer bc_cl(acc.context_, CL_MEM_READ_WRITE, kResultBytes);
+        cl::Buffer
+          dist_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(VertexId) * n),
+          sigma_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(SigmaInt) * n),
+          delta_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(Result) * n),
+          red_cl(acc.context_, CL_MEM_READ_WRITE, std::max(sizeof(SigmaInt),
+                sizeof(Result)) * n1),
+          bc_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(Result) * n);
         MICROPROF_END(graph_to_gpu);
 
         MICROBENCH_TIMEPOINT(starting_kernels);

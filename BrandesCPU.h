@@ -11,6 +11,8 @@
 
 namespace brandes {
 
+  typedef int SigmaInt;
+
   template<typename Return, typename VertexList>
     static inline Return bc_cpu_worker(
         const VertexList __pass__ ptr,
@@ -24,7 +26,8 @@ namespace brandes {
       const VertexId n = ptr.size() - 1;
       Return bc(n, 0.0f), delta(n);
       VertexList queue(n);
-      VertexList dist(n), sigma(n);
+      VertexList dist(n);
+      std::vector<SigmaInt> sigma(n);
       VertexId source, processed_count = 0;
       while ((source = (*source_dispatch)++) < n) {
         auto qfront = queue.begin(), qback = qfront;
