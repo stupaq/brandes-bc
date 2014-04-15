@@ -26,12 +26,12 @@
 #define MYCL_ERROR_CHECKING
 #endif
 
-#ifndef DEFAULT_MDEG_LOG2
-#define DEFAULT_MDEG_LOG2 4
+#ifndef DEFAULT_MDEG
+#define DEFAULT_MDEG 8
 #endif
 
-#ifndef DEFAULT_WGROUP_LOG2
-#define DEFAULT_WGROUP_LOG2 7
+#ifndef DEFAULT_WGROUP
+#define DEFAULT_WGROUP 256
 #endif
 
 #ifndef DEFAULT_CPU_JOBS
@@ -92,21 +92,17 @@ static inline void generic_write(Result& res, const char* file_path) {
   MICROPROF_END(writing_results);
 }
 
-static inline int log2ceil(int x) {
-  return std::ceil(std::log2(x));
-}
-
 static void version() {
   printf(
       "OPTIMIZE=%d\n"
-      "DEFAULT_MDEG_LOG2=%d\n"
-      "DEFAULT_WGROUP_LOG2=%d\n"
+      "DEFAULT_MDEG=%d\n"
+      "DEFAULT_WGROUP=%d\n"
       "DEFAULT_CPU_JOBS=%d\n"
       "DEFAULT_USE_GPU=%d\n"
       "ALGORITHM_PIPE=%s\n",
       OPTIMIZE,
-      DEFAULT_MDEG_LOG2,
-      DEFAULT_WGROUP_LOG2,
+      DEFAULT_MDEG,
+      DEFAULT_WGROUP,
       DEFAULT_CPU_JOBS,
       DEFAULT_USE_GPU,
       BOOST_PP_STRINGIZE(ALGORITHM_PIPE));
@@ -123,13 +119,12 @@ int main(int argc, const char* argv[]) {
   MICROPROF_START(main_total);
   assert(argc > 2); SUPPRESS_UNUSED(argc);
 
-  Context ctx = {
-    std::async(std::launch::async, mycl::init_device),
-    argc > 3 ? log2ceil(lexical_cast<int>(argv[3])) : DEFAULT_MDEG_LOG2,
-    argc > 4 ? log2ceil(lexical_cast<int>(argv[4])) : DEFAULT_WGROUP_LOG2,
-    argc > 5 ? lexical_cast<int>(argv[5]) : DEFAULT_CPU_JOBS,
-    argc > 6 ? lexical_cast<bool>(argv[6]) : DEFAULT_USE_GPU,
-  };
+  Context ctx(
+      std::async(std::launch::async, mycl::init_device),
+      argc > 3 ? lexical_cast<int>(argv[3]) : DEFAULT_MDEG,
+      argc > 4 ? lexical_cast<int>(argv[4]) : DEFAULT_WGROUP,
+      argc > 5 ? lexical_cast<int>(argv[5]) : DEFAULT_CPU_JOBS,
+      argc > 6 ? lexical_cast<bool>(argv[6]) : DEFAULT_USE_GPU);
 #ifdef MYCL_ERROR_CHECKING
   try {
 #endif

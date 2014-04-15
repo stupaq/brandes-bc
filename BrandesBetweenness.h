@@ -14,6 +14,11 @@ namespace brandes {
   using mycl::bytes;
 
   struct betweenness {
+    template<typename Int>
+      static inline Int round_up(Int value, Int factor) {
+        return value + factor - 1 - ((value - 1) % factor);
+      }
+
     template<typename Return, typename VertexList>
       inline Return cont(
           Context& ctx,
@@ -34,17 +39,23 @@ namespace brandes {
             "Result type not compatible");
 
         /* We prepare our ranges for one extra thread (for inits). */
-        cl::NDRange local(1 << ctx.kWGroupLog2_);
+        cl::NDRange local(ctx.kWGroup_);
         const VertexId n = ptr.size() - 1;
-        cl::NDRange n_global(round_up(n + 1, ctx.kWGroupLog2_));
+        cl::NDRange n_global(round_up(n + 1, ctx.kWGroup_));
         const VertexId n1 = vmap.size() - 1;
-        cl::NDRange n1_global(round_up(n1 + 1, ctx.kWGroupLog2_));
+        cl::NDRange n1_global(round_up(n1 + 1, ctx.kWGroup_));
+
+        assert(local.dimensions() == 1);
+        assert(n_global.dimensions() == 1);
+        assert(n1_global.dimensions() == 1);
+        assert(n_global[0] * local[0] >= (n + 1) * ctx.kWGroup_);
+        assert(n1_global[0] * local[0] >= (n1 + 1) * ctx.kWGroup_);
+
         assert(vmap.back() == n);
         assert(voff.back() == 0);
         assert(ptr.back() == adj.size());
 
-        MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n",
-            1 << ctx.kWGroupLog2_);
+        MICROPROF_INFO("CONFIGURATION:\twork group\t%d\n", ctx.kWGroup_);
         MICROPROF_START(device_wait);
         Accelerator acc = ctx.dev_future_.get();
         cl::CommandQueue& q = acc.queue_;

@@ -11,6 +11,7 @@
 
 #include "./MicroBench.h"
 
+#define MYCL_WGROUP_MULTIPLE 32
 #define MYCL_OPTIONS "-Werror     "\
   "-cl-single-precision-constant  "\
   "-cl-finite-math-only           "\

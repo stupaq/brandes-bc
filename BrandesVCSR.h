@@ -9,11 +9,6 @@
 
 namespace brandes {
 
-  template<typename Int> inline Int round_up(Int value, Int factor) {
-    Int factor_mask = (1 << factor) - 1;
-    return value + factor_mask - ((value - 1) & factor_mask);
-  }
-
   template<typename Int> inline Int divide_up(Int value, Int factor) {
     return (value + (1 << factor) - 1) >> factor;
   }

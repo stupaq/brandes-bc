@@ -18,9 +18,18 @@ HEADERS		:= $(wildcard *.h)
 SOURCES		:= $(wildcard *.cpp)
 TARGET		:= brandes
 
+#CPPFLAGS	+= -DOPTIMIZE=
+#CPPFLAGS	+= -DDEFAULT_MDEG=
+#CPPFLAGS	+= -DDEFAULT_WGROUP=
+#CPPFLAGS	+= -DDEFAULT_CPU_JOBS=
+#CPPFLAGS	+= -DDEFAULT_USE_GPU=
+#CPPFLAGS	+= -DNO_DEG1
+#CPPFLAGS	+= -DNO_BFS
+#CPPFLAGS	+= -DNO_STATS
+
 $(TARGET): $(SOURCES) $(HEADERS) Makefile
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $< $(LDFLAGS) $(LDLIBS) -o $@
-	@du -sh $@
+	@wc -c $@
 
 clean:
 	-rm -rf brandes

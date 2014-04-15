@@ -21,9 +21,27 @@ namespace brandes {
   struct Context {
     std::future<Accelerator> dev_future_;
     const int kMDegLog2_;
-    const int kWGroupLog2_;
+    const int kWGroup_;
     const int kCPUJobs_;
     const bool kUseGPU_;
+
+    Context(
+        std::future<Accelerator> &&dev,
+        int m_deg,
+        int wgroup,
+        int cpu_jobs,
+        bool use_gpu
+        ) :
+      dev_future_(std::move(dev)),
+      kMDegLog2_(std::ceil(std::log2(m_deg))),
+      kWGroup_(wgroup),
+      kCPUJobs_(cpu_jobs),
+      kUseGPU_(use_gpu)
+    {
+      assert(1 << kMDegLog2_ == m_deg);
+      assert(wgroup % MYCL_WGROUP_MULTIPLE == 0);
+      assert(cpu_jobs > 0 || use_gpu);
+    }
   };
 
 }  // namespace brandes
