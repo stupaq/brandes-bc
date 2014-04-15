@@ -1,0 +1,133 @@
+\input{./short-report-include.tex}
+
+\begin{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\makeheader{GPU accelerated implementation of Brandes algorithm}{Mateusz Machalica}
+
+\subsection*{Baseline algorithm}
+
+Denote the input graph by $G = \tuple{V, E}$.
+There are two natural ways of parallelizing Brandes algorithm:
+\begin{itemize}
+  \item a source-based parallelisation, where each thread computes betweenness centrality score for all paths with a given source
+  \item a loop-based parallelisation, where all threads cooperate in execution of loops withing single source iteration
+\end{itemize}
+
+The source-based algorithm is expected to scale linearly in number of processors, since computations for different sources are fully independent and final reduction of intermediate scores can be done in parallel.
+The problem with this approach is the need of temporary data of $O(|V|)$ size per each thread, therefore for massively parallel processing units, where number of threads $p$ is of the order of $1000$, we would need $O(p |V|)$ memory.
+Even if such memory requirements can be met by the main memory, there is no cache of such size and most of memory accesses will be serialized.
+There are other limitations of GPU processors that drive our attention to the second approach.
+Source-based parallelism can be efficiently implemented on CPU, where for $p \leq 8$ we can easily fit $G$ and all intermediate data in the cache.
+
+We implement loop-based parallelism (also known as vertex-based) by assigning a thread to each vertex and processing all vertices with a given distance from the source in a superstep.
+This way a single source computation requires a number of supersteps no greater than $d$ -- the diameter of $G$.
+Details of this approach are described in \cite{BcGpu}.
+Underlying graph representation is closely related to CSR format as described in \cite{BcGpu}, we concatenate adjacency lists of a graph in the order given by vertex IDs and store them in an array \verb+adj+, an additional array \verb+ptr+ stores for each vertex \verb+v+ an index in \verb+adj+ of the first element of its adjacency list.
+Since lists are concatenated in the proper order, we can access adjacency list of \verb+v+ by reading consecutive elements of \verb+adj+ between index \verb+ptr[v]+ and \verb=ptr[v + 1]=.
+
+\subsection*{Performance measurements methodology}
+
+Performance measurements were conducted with the following (mostly social graphs) instances from \cite{Snap}:
+\begin{itemize}
+  \item \verb+ego-Facebook+
+  \item \verb+soc-Epinions1+
+  \item \verb+soc-Slashdot0811+
+  \item \verb+soc-Slashdot0922+
+  \item \verb+wiki-Vote+
+  \item \verb+p2p-Gnutella31+
+  \item \verb+soc-sign-epinions+
+  \item \verb+loc-Brightkite+
+\end{itemize}
+For each instance we measured total execution time, including preprocessing and OpenCL device setup.
+Directed graphs were made undirected by symmetrisation of corresponding adjacency matrices.
+We measured relative total time changes for each of above graphs, this way we assigned equal weights to the graphs of different sizes.
+Measurements were averaged over two runs per each machine (\verb+nvidia1+ and \verb+nvidia2+).
+
+\subsection*{General optimisation techniques}
+
+\subsubsection*{Removal of vertices of degree less than two}
+
+It is easy to see that vertices of degree no greater than one have betweenness centrality score equal to zero.
+A less obvious observation is that betweenness centrality score for a tree can be computed in linear time by recursively removing vertices of degree less than two and appropriately updating scores.
+These observations lead to an algorithm which reduces the size of input graph and ensures that all remaining vertices have degree at least two.
+All necessary proofs can be found in \cite{GraphComp}.
+There is a significant difference is the reduction algorithm proposed in \cite{GraphComp} and the one used by our implementation.
+The one described in the paper contains other reductions and is far from linear, our implementation contains cache-efficient linear algorithm.
+We have abandoned the idea of implementing other reductions described in \cite{GraphComp} as they do not improve single threaded running time significantly and are quite complicated.
+
+The reduction has an obvious benefit of decreasing instance size.
+For social graphs from \cite{Snap}, we have obtained an average reduction of number of vertices by $(50 \pm 13) \%$.
+The less obvious benefit is \emph{equalisation} of threads within a warp, we no longer can have a situation that some threads in a warp have nothing to do, while the others must process plenty of adjacent edges.
+
+\subsubsection*{Ordering of the graph}
+
+It is beneficial to ensure proper ordering of \verb+adj+ (and consequently \verb+ptr+).
+Since in a single superstep we process all vertices within a given distance from the source, we would like all threads in the same warp to be assigned to the vertices within this distance.
+It intuitively means that we would like vertices which are close in $G$ to have close IDs.
+One of possible ways to improve vertex to vertex ID assignment in the graph is to sort it according to BFS visit times from an arbitrary source.
+Unfortunately this optimisation brings decrease of running time of $(3 \pm 2) \%$ only.
+
+\subsection*{GPU-specific optimisations}
+
+\subsubsection*{SoA for intermediate data}
+
+Brandes algorithm uses intermediate data in fairly regular way which might suggest that one can benefit from storing it in the array of structures.
+Our initial intuition (following \cite{GlobMem}) was that storing all intermediate data for a single vertex in a structure and fetching entire structure at the beginning of each kernel would bring significant performance boost.
+Our measurements showed that this is absolutely not the case and that appropriate approach is to lay out data in structure of arrays, which decreases running time by $(12 \pm 6) \%$ when compared with AoS layout.
+The other benefit of SoA layout is the possibility of efficient splitting kernels into smaller units which turned out to be a crucial for one of the optimisations covered later in this document.
+
+\subsubsection*{Vertex virtualization}
+
+Technical report \cite{BcGpu} describes optimisation which involves assigning multiple threads to process a single vertex in such a way that no thread processes more than $D$ adjacent edges.
+Optimal value of $D$ was found experimentally.
+Note that this optimisation involves changing two addition operations to atomic versions, it turns out that it still brings decrease of running time by $(17 \pm 11) \%$.
+Since there is no atomic addition operation for floats in OpenCL 1.1, we had to emulate it as described in \cite{AtomAddF} -- we later show how to get rid of this inefficiency.
+
+\subsubsection*{Coalesced accesses to adjacency lists}
+
+Note that in vertex virtualization approach each thread assigned to the same vertex of $G$ acceses a continuous region of \verb+adj+ of size $D$.
+We can coalesce accesses to \verb+adj+ within a single vertex by assigning adjacent edges to virtual vertices (threads) in a round-robin fashion as described in \cite{BcGpu}.
+Measured decrease in running time due to this optimisation is negligible $(5 \pm 4) \%$, but it greatly simplifies graph preprocessing phase.
+
+\subsubsection*{Replacing atomics with parallel reduction}
+
+Probably the most important GPU-specific optimisation involved replacing atomic additions with parallel reduction.
+Each virtual vertex, instead of adding its value to vertex-wide aggregate, put it in a temporary array.
+A separate kernel was launched with one thread per vertex in order to aggregate partial results from all virtual vertices into a single number.
+This optimisation is responsible for $(38 \pm 8) \%$ decrease of running time.
+
+\subsection*{Miscellaneous optimisations and cheats}
+
+\subsubsection*{Asynchronous device initialisation}
+
+According to our tests entire process of device initialisation and kernels preparation takes from $\SI{300}{ms}$ to $\SI{500}{ms}$.
+Since reading the graph and CPU preprocessing takes less than $\SI{200}{ms}$ for test instances, we can hide this overhead by initialising device in parallel.
+
+\subsubsection*{CPU and GPU cooperation}
+
+Additionally we have implemented CPU source-parallel version of Brandes algorithm.
+In order to ensure low-overhead allocation of sources for CPU and GPU processing, we use atomic integer and distribute sources to processing units (CPU workers or GPU driver) in nearly round-robin fashion.
+Optimal number of worker CPU threads was determined experimentally\footnote{We can actually guess it, since we have $p$ cores it is intitively the most beneficial to use one thread for GPU driver and $p - 1$ threads for CPU workers. Our tests confirmed this intuition}.
+We have observed linear scaling of CPU implementation performance in terms of number of worker threads (as long as number of threads does not exceed number of CPU cores).
+
+%\newpage
+
+\begin{thebibliography}{9}
+  \bibitem{BcGpu} A. E. Sariyuce, K. Kaya, E. Saule, U. V. Catalyurek \\
+    \newblock ,,Betweenness Centrality on GPUs and Heterogeneous Architectures''
+  \bibitem{GraphComp} A. E. Sariyuce, K. Kaya, E. Saule, U. V. Catalyurek \\
+    \newblock ,,Shattering and Compressing Networks for Betweenness Centrality''
+  \bibitem{GlobMem} J. Luitjens \\
+    \newblock ,,Global Memory Usage and Strategy''
+  \bibitem{AtomAddF} I. Suhorukov \\
+    \newblock ,,OpenCL 1.1: Atomic operations on floating point values'' \\
+    \newblock \url{http://suhorukov.blogspot.com/2011/12/opencl-11-atomic-operations-on-floating.html}
+  \bibitem{Snap} J. Leskovec \\
+    \newblock ,,Stanford Large Network Dataset Collection''
+    \newblock \url{http://snap.stanford.edu/data/}
+\end{thebibliography}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{document}
+% vim: noet:sw=2:ts=2:tw=160
