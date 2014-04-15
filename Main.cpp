@@ -31,7 +31,7 @@
 #endif
 
 #ifndef DEFAULT_WGROUP
-#define DEFAULT_WGROUP 256
+#define DEFAULT_WGROUP 192
 #endif
 
 #ifndef DEFAULT_CPU_JOBS
