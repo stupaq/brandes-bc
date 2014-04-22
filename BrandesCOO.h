@@ -39,7 +39,7 @@ namespace brandes {
       }
       Edge::VertexId n = 0;
       for (auto& e : E) {
-        assert(e.v1_ < e.v2_);
+        n = (n <= e.v1_) ? e.v1_ + 1 : n;
         n = (n <= e.v2_) ? e.v2_ + 1 : n;
       }
       assert(!E.empty());
