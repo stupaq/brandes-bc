@@ -148,15 +148,25 @@ namespace brandes {
           bool proceed;
           VertexId curr_dist = 0;
           do {
+            k_fwd.setArg(1, curr_dist);
+            q.enqueueNDRangeKernel(k_fwd, cl::NullRange, n1_global, local);
+            /* Note that we must first obtain proceed flag and then run
+             * parallel reduction kernel as it sets proceed to false. */
+            cl::Event evt;
+            q.enqueueReadBuffer(proceed_cl, false, 0, sizeof(bool), &proceed,
+                NULL, &evt);
+            /* Performing aggregation for source (curr_dist == 0) is not
+             * correct since we explicitly set sigma[source] = 1. */
             if (curr_dist > 0) {
+              k_fwd_red.setArg(1, curr_dist);
               q.enqueueNDRangeKernel(k_fwd_red, cl::NullRange, n_global, local);
             }
-            k_fwd.setArg(1, curr_dist);
-            k_fwd_red.setArg(1, curr_dist);
-            q.enqueueNDRangeKernel(k_fwd, cl::NullRange, n1_global, local);
-            q.enqueueReadBuffer(proceed_cl, true, 0, sizeof(bool), &proceed);
-            q.finish();
             curr_dist++;
+            /* The fact that we use specific event instead of clFinish() call
+             * makes GPU busy at all times, once buffer reading completes we
+             * can read the value and GPU executes the kernel without any lag.
+             * This effectively hides kernel setup time. */
+            evt.wait();
           } while (proceed);
 
           while (--curr_dist > 0) {
