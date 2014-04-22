@@ -97,6 +97,20 @@ Each virtual vertex, instead of adding its value to vertex-wide aggregate, put i
 A separate kernel was launched with one thread per vertex in order to aggregate partial results from all virtual vertices into a single number.
 This optimisation is responsible for $(38 \pm 8) \%$ decrease of running time.
 
+\subsubsection*{Fine grained data dependencies a.k.a. keeping GPU busy}
+
+The overhead of launching kernel or scheduling data transfers can be conceptually split into a host-side and device-side\footnote{By device-side overhead we mean the overhead associated with copying kernel arguments, starting it and enforcing global memory barriers (implied by OpenCL specification) after the execution.}.
+We cannot do much about device-side one but we can try to hide host-side overhead by proper design and implementation of CPU driver (the code responsible for gluing kernels together).
+
+Ideally, we would like to design our driver (and kernels) in such a way that all it does is to schedule execution of certain kernels and wait for final results during entire GPU-based computation.
+This is unfortunately impossible in most cases, but we can do pretty much as well by making sure that the command queue is not empty until the end of the computation, effectively overlapping kernel or memory transfer setup with other kernels execution.
+Details of this optimisation are documented in the driver code, we will however briefly cover the main idea here.
+
+OpenCL command queue by defaults ensures sequential consistency between kernels and memory transfers and guarantees nothing when it comes to host-device interaction unless one invokes \verb+clFinish()+ call, which returns after command queue becomes empty and the last command completes.
+Our driver implementation uses OpenCL \verb+cl_event+ in order to enforce slightly relaxed consistency between the host and the device, we still make use of in-order command queue though.
+We have managed to replace all but the last one\footnote{The one after the last command of entire algorithm. After careful reading of OpenCL 1.1 specification one can conclude that we can get rid of this call too. We have decided to leave it as it is, since it is encountered only once and makes no measurable difference in performance.} invocations of \verb+clFinish()+ with calls to \verb+clWaitForEvents()+ in such a way that we never wait for the last scheduled command (we might however wait for the second-to-last one).
+Obviously all memory transfers are asynchronous, just like kernel invocations.
+
 \subsection*{Miscellaneous optimisations and cheats}
 
 \subsubsection*{Asynchronous device initialisation}
@@ -108,7 +122,7 @@ Since reading the graph and CPU preprocessing takes less than $\SI{200}{ms}$ for
 
 Additionally we have implemented CPU source-parallel version of Brandes algorithm.
 In order to ensure low-overhead allocation of sources for CPU and GPU processing, we use atomic integer and distribute sources to processing units (CPU workers or GPU driver) in nearly round-robin fashion.
-Optimal number of worker CPU threads was determined experimentally\footnote{We can actually guess it, since we have $p$ cores it is intitively the most beneficial to use one thread for GPU driver and $p - 1$ threads for CPU workers. Our tests confirmed this intuition}.
+Optimal number of worker CPU threads was determined experimentally\footnote{We can actually guess it, since we have $p$ cores it is intuitively the most beneficial to use one thread for GPU driver and $p - 1$ threads for CPU workers. Our tests confirmed this intuition}.
 We have observed linear scaling of CPU implementation performance in terms of number of worker threads (as long as number of threads does not exceed number of CPU cores).
 
 %\newpage
