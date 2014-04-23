@@ -84,6 +84,11 @@ namespace brandes {
           bc_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(Result) * n);
         MICROPROF_END(graph_to_gpu);
 
+        /* Architecture of the driver hides latencies of starting all kernels
+         * but the first one. We measure kernel execution times using CPU wall
+         * clock, because otherwise, when usin OpenCL profiling-enabled command
+         * queue, we would have to wait for events completion and keep the
+         * device underutilized. */
         MICROBENCH_TIMEPOINT(starting_kernels);
         { /* This approach appears to be measurably faster for big graphs. */
           cl::Kernel k_init_n(acc.program_, "vcsr_init_n");
@@ -194,13 +199,15 @@ namespace brandes {
             MICROPROF_INFO("PROGRESS:\t%d / %d\n", source, n);
           }
         }
+        q.finish();
+        MICROBENCH_TIMEPOINT(kernels_completed);
 
         Return bc(n);
         q.enqueueReadBuffer(bc_cl, true, 0, bytes(bc), bc.data());
         q.finish();
-
         MICROBENCH_TIMEPOINT(fetched_results);
-        MICROBENCH_REPORT(starting_kernels, fetched_results, stderr, "%ld\n",
+
+        MICROBENCH_REPORT(starting_kernels, kernels_completed, stderr, "%ld\n",
             std::chrono::milliseconds);
         MICROBENCH_REPORT(moving_data, fetched_results, stderr, "%ld\n",
             std::chrono::milliseconds);
