@@ -76,7 +76,12 @@ namespace mycl {
       acc.context_.getInfo<CL_CONTEXT_DEVICES>();
     MICROPROF_WARN(devices.size() != 1,
         "More than one device on choosen platform.");
+#ifdef MYCL_QUEUE_PROFILING
+    acc.queue_ = cl::CommandQueue(acc.context_, devices[0],
+        CL_QUEUE_PROFILING_ENABLE);
+#else
     acc.queue_ = cl::CommandQueue(acc.context_, devices[0]);
+#endif
     acc.program_ = build_program(acc.context_, devices,
         "BrandesKernels.cl");
     MICROPROF_END(init_device);
@@ -90,6 +95,21 @@ namespace mycl {
 
 namespace mycl_debug {
   using mycl::bytes;
+
+  inline cl_long duration(const cl::Event& evt) {
+    return evt.getProfilingInfo<CL_PROFILING_COMMAND_END>() -
+      evt.getProfilingInfo<CL_PROFILING_COMMAND_START>();
+  }
+
+  template<typename Iterator>
+    inline cl_long duration(Iterator begin, Iterator end) {
+      cl_long total = 0LL;
+      for (; begin < end; begin++) {
+        begin->wait();
+        total += duration(*begin);
+      }
+      return total;
+    }
 
   template<typename Elem>
     std::vector<Elem> read(cl::CommandQueue q, cl::Buffer buf_cl, size_t n) {

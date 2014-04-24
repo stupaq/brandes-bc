@@ -15,6 +15,7 @@ passed in `CPPFLAGS`.
 * `-DNO_DEG1` - disables tree contraction
 * `-DNO_BFS` - disables BFS ordering of the graph
 * `-DNO_STATS` - disables printing graph statistics
+* `-DMYCL_QUEUE_PROFILING` - enables OpenCL command queue profiling
 
 Running performance evaluation
 ------------------------------

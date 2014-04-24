@@ -61,20 +61,34 @@ namespace brandes {
         cl::CommandQueue& q = acc.queue_;
         MICROPROF_END(device_wait);
 
+#ifdef MYCL_QUEUE_PROFILING
+        std::vector<cl::Event> mem_cts, kern_cts;
+        mem_cts.reserve(16);
+        kern_cts.reserve(64);
+        cl_long mem_time = 0LL, kern_time = 0LL;
+#define add_to(evts)  ({ evts.push_back(cl::Event()); &(evts.back()); })
+#else
+#define add_to(evts) NULL
         MICROBENCH_TIMEPOINT(moving_data);
+#endif
         MICROPROF_START(graph_to_gpu);
         cl::Buffer proceed_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(bool));
         cl::Buffer vmap_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vmap));
-        q.enqueueWriteBuffer(vmap_cl, false, 0, bytes(vmap), vmap.data());
+        q.enqueueWriteBuffer(vmap_cl, false, 0, bytes(vmap), vmap.data(),
+            NULL, add_to(mem_cts));
         cl::Buffer voff_cl(acc.context_, CL_MEM_READ_ONLY, bytes(voff));
-        q.enqueueWriteBuffer(voff_cl, false, 0, bytes(voff), voff.data());
+        q.enqueueWriteBuffer(voff_cl, false, 0, bytes(voff), voff.data(),
+            NULL, add_to(mem_cts));
         cl::Buffer rmap_cl(acc.context_, CL_MEM_READ_ONLY, bytes(vmap));
         cl::Buffer ptr_cl(acc.context_, CL_MEM_READ_ONLY, bytes(ptr));
-        q.enqueueWriteBuffer(ptr_cl, false, 0, bytes(ptr), ptr.data());
+        q.enqueueWriteBuffer(ptr_cl, false, 0, bytes(ptr), ptr.data(),
+            NULL, add_to(mem_cts));
         cl::Buffer adj_cl(acc.context_, CL_MEM_READ_ONLY, bytes(adj));
-        q.enqueueWriteBuffer(adj_cl, false, 0, bytes(adj), adj.data());
+        q.enqueueWriteBuffer(adj_cl, false, 0, bytes(adj), adj.data(),
+            NULL, add_to(mem_cts));
         cl::Buffer weight_cl(acc.context_, CL_MEM_READ_ONLY, bytes(weight));
-        q.enqueueWriteBuffer(weight_cl, false, 0, bytes(weight), weight.data());
+        q.enqueueWriteBuffer(weight_cl, false, 0, bytes(weight), weight.data(),
+            NULL, add_to(mem_cts));
         cl::Buffer
           dist_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(VertexId) * n),
           sigma_cl(acc.context_, CL_MEM_READ_WRITE, sizeof(SigmaInt) * n),
@@ -85,16 +99,19 @@ namespace brandes {
         MICROPROF_END(graph_to_gpu);
 
         /* Architecture of the driver hides latencies of starting all kernels
-         * but the first one. We measure kernel execution times using CPU wall
-         * clock, because otherwise, when usin OpenCL profiling-enabled command
-         * queue, we would have to wait for events completion and keep the
-         * device underutilized. */
+         * but the first one. We prefer measuring kernel execution times using
+         * CPU wall clock, because otherwise, when using OpenCL
+         * profiling-enabled command queue, we would have to wait for events
+         * completion and keep the device underutilized. */
+#ifndef MYCL_QUEUE_PROFILING
         MICROBENCH_TIMEPOINT(starting_kernels);
+#endif
         { /* This approach appears to be measurably faster for big graphs. */
           cl::Kernel k_init_n(acc.program_, "vcsr_init_n");
           k_init_n.setArg(0, n);
           k_init_n.setArg(1, bc_cl);
-          q.enqueueNDRangeKernel(k_init_n, cl::NullRange, n_global, local);
+          q.enqueueNDRangeKernel(k_init_n, cl::NullRange, n_global, local,
+              NULL, add_to(kern_cts));
         }
         { /* Note that n1_global range is prepared for one extra thread. */
           cl::Kernel k_init_n1(acc.program_, "vcsr_init_n1");
@@ -103,7 +120,8 @@ namespace brandes {
           k_init_n1.setArg(2, vmap_cl);
           k_init_n1.setArg(3, voff_cl);
           k_init_n1.setArg(4, rmap_cl);
-          q.enqueueNDRangeKernel(k_init_n1, cl::NullRange, n1_global, local);
+          q.enqueueNDRangeKernel(k_init_n1, cl::NullRange, n1_global, local,
+              NULL, add_to(kern_cts));
         }
 
         /** We can move some arguments setting outside of the loop. */
@@ -159,13 +177,15 @@ namespace brandes {
         VertexId source;
         while ((source = source_dispatch++) < n) {
           k_source.setArg(1, source);
-          q.enqueueNDRangeKernel(k_source, cl::NullRange, n_global, local);
+          q.enqueueNDRangeKernel(k_source, cl::NullRange, n_global, local,
+              NULL, add_to(kern_cts));
 
           bool proceed;
           VertexId curr_dist = 0;
           do {
             k_fwd.setArg(1, curr_dist);
-            q.enqueueNDRangeKernel(k_fwd, cl::NullRange, n1_global, local);
+            q.enqueueNDRangeKernel(k_fwd, cl::NullRange, n1_global, local,
+                NULL, add_to(kern_cts));
             /* Note that we must first obtain proceed flag and then run
              * parallel reduction kernel as it sets proceed to false. */
             cl::Event evt;
@@ -175,7 +195,8 @@ namespace brandes {
              * correct since we explicitly set sigma[source] = 1. */
             if (curr_dist > 0) {
               k_fwd_red.setArg(1, curr_dist);
-              q.enqueueNDRangeKernel(k_fwd_red, cl::NullRange, n_global, local);
+              q.enqueueNDRangeKernel(k_fwd_red, cl::NullRange, n_global, local,
+                  NULL, add_to(kern_cts));
             }
             curr_dist++;
             /* The fact that we use specific event instead of clFinish() call
@@ -183,34 +204,62 @@ namespace brandes {
              * can read the value and GPU executes the kernel without any lag.
              * This effectively hides kernel setup time. */
             evt.wait();
+#ifdef MYCL_QUEUE_PROFILING
+            mem_time += mycl_debug::duration(evt);
+#endif
           } while (proceed);
 
           while (--curr_dist > 0) {
             k_back.setArg(1, curr_dist);
-            q.enqueueNDRangeKernel(k_back, cl::NullRange, n1_global, local);
+            q.enqueueNDRangeKernel(k_back, cl::NullRange, n1_global, local,
+                NULL, add_to(kern_cts));
             k_back_red.setArg(1, curr_dist);
-            q.enqueueNDRangeKernel(k_back_red, cl::NullRange, n_global, local);
+            q.enqueueNDRangeKernel(k_back_red, cl::NullRange, n_global, local,
+                NULL, add_to(kern_cts));
           }
 
           k_sum.setArg(1, source);
-          q.enqueueNDRangeKernel(k_sum, cl::NullRange, n_global, local);
+          q.enqueueNDRangeKernel(k_sum, cl::NullRange, n_global, local,
+              NULL, add_to(kern_cts));
 
+#ifdef MYCL_QUEUE_PROFILING
+          {
+            /* This is a nice trick, we do not drain the queue so GPU is
+             * constantly busy. */
+            auto consume_begin = kern_cts.begin() + 4,
+                 consume_end = kern_cts.end();
+            kern_time += mycl_debug::duration(consume_begin, consume_end);
+            kern_cts.erase(consume_begin, consume_end);
+          }
+#endif
           if (source % (n / 24) == 0) {
             MICROPROF_INFO("PROGRESS:\t%d / %d\n", source, n);
           }
         }
+#ifndef MYCL_QUEUE_PROFILING
         q.finish();
         MICROBENCH_TIMEPOINT(kernels_completed);
+#endif
 
         Return bc(n);
-        q.enqueueReadBuffer(bc_cl, true, 0, bytes(bc), bc.data());
+        q.enqueueReadBuffer(bc_cl, true, 0, bytes(bc), bc.data(),
+            NULL, add_to(mem_cts));
         q.finish();
-        MICROBENCH_TIMEPOINT(fetched_results);
 
+#ifdef MYCL_QUEUE_PROFILING
+        mem_time += mycl_debug::duration(mem_cts.begin(), mem_cts.end());
+        mem_cts.clear();
+        kern_time += mycl_debug::duration(kern_cts.begin(), kern_cts.end());
+        kern_cts.clear();
+        fprintf(stderr, "%lld\n%lld\n", kern_time / 1000000LL,
+            (kern_time + mem_time) / 1000000LL);
+#else
+        MICROBENCH_TIMEPOINT(fetched_results);
         MICROBENCH_REPORT(starting_kernels, kernels_completed, stderr, "%ld\n",
             std::chrono::milliseconds);
         MICROBENCH_REPORT(moving_data, fetched_results, stderr, "%ld\n",
             std::chrono::milliseconds);
+#endif
         return bc;
       }
   };

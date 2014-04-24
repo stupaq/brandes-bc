@@ -2,7 +2,7 @@
 
 CXXinclude	+= -isystem /usr/local/cuda-5.5/include/ -isystem /opt/cuda/include/ -isystem /opt/AMDAPP/include/
 CXXoptimize	+= -march=native -O3 -funroll-loops -flto -fwhole-program -fuse-linker-plugin -finline-limit=16777216
-CXXwarnings	+= -Wall -Wextra -pedantic
+CXXwarnings	+= -Wall -Wextra
 CXXlint		?= cpplint --filter=-legal/copyright,-whitespace/braces,-whitespace/newline,-whitespace/parens,-runtime/references
 
 ifneq (,$(wildcard /usr/bin/g++-4.8))
@@ -26,6 +26,7 @@ TARGET		:= brandes
 #CPPFLAGS	+= -DNO_DEG1
 #CPPFLAGS	+= -DNO_BFS
 #CPPFLAGS	+= -DNO_STATS
+CPPFLAGS	+= -DMYCL_QUEUE_PROFILING
 
 $(TARGET): $(SOURCES) $(HEADERS) Makefile
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $< $(LDFLAGS) $(LDLIBS) -o $@
