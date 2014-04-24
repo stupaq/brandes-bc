@@ -1,0 +1,32 @@
+TEST BEGIN | Thu Apr 17 18:07:15 CEST 2014 | 8 graphs
+OPTIMIZE=3
+DEFAULT_MDEG=8
+DEFAULT_WGROUP=192
+DEFAULT_CPU_JOBS=3
+DEFAULT_USE_GPU=1
+ALGORITHM_PIPE=csr_create<ocsr_create<no_stats<deg1_reduce<cpu_driver<vcsr_create<betweenness>>>>>>
+facebook_combined.txt    1166
+loc-brightkite_edges.txt         24354
+p2p-Gnutella31.txt       21945
+soc-Epinions1.txt        37748
+soc-sign-epinions.txt    97794
+soc-Slashdot0811.txt     63966
+soc-Slashdot0902.txt     75092
+wiki-Vote.txt    1582
+TEST END
+TEST BEGIN | Thu Apr 17 18:07:13 CEST 2014 | 8 graphs
+OPTIMIZE=3
+DEFAULT_MDEG=8
+DEFAULT_WGROUP=192
+DEFAULT_CPU_JOBS=3
+DEFAULT_USE_GPU=1
+ALGORITHM_PIPE=csr_create<ocsr_create<no_stats<deg1_reduce<cpu_driver<vcsr_create<betweenness>>>>>>
+facebook_combined.txt    1119
+loc-brightkite_edges.txt         24501
+p2p-Gnutella31.txt       22033
+soc-Epinions1.txt        37978
+soc-sign-epinions.txt    98192
+soc-Slashdot0811.txt     66119
+soc-Slashdot0902.txt     77410
+wiki-Vote.txt    1581
+TEST END
