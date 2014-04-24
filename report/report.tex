@@ -109,7 +109,21 @@ Details of this optimisation are documented in the driver code, we will however 
 OpenCL command queue by defaults ensures sequential consistency between kernels and memory transfers and guarantees nothing when it comes to host-device interaction unless one invokes \verb+clFinish()+ call, which returns after command queue becomes empty and the last command completes.
 Our driver implementation uses OpenCL \verb+cl_event+ in order to enforce slightly relaxed consistency between the host and the device, we still make use of in-order command queue though.
 We have managed to replace all but the last one\footnote{The one after the last command of entire algorithm. After careful reading of OpenCL 1.1 specification one can conclude that we can get rid of this call too. We have decided to leave it as it is, since it is encountered only once and makes no measurable difference in performance.} invocations of \verb+clFinish()+ with calls to \verb+clWaitForEvents()+ in such a way that we never wait for the last scheduled command (we might however wait for the second-to-last one).
-Obviously all memory transfers are asynchronous, just like kernel invocations.
+Obviously all memory transfers are asynchronous, just like
+kernel invocations.
+
+\subsection*{Tricky parts and possible mistakes}
+
+\subsubsection*{Kernels profiling}
+
+The tricky part lies in the implementation of kernel and memory transfer profiling.
+It is easy to get a $30\%$ run time increase if one tries to wait for every kernel invocation -- the reason for this was discussed in previous section.
+The trick here is to aggregate events in an array and process them after we are sure that most or all of them have already finished.
+This way we can use OpenCL profiling and accurately measure kernels run time with only $5\%$ -- $8\%$ performance hit.
+
+Elaborated explanation from previous section justifies a better in terms of performance, but less accurate, method of measuring total execution time of all kernels.
+Since proper design of the driver ensures non-emptiness of commands queue until the very end of the algorithm, we can approximate total execution time using CPU wall clock.
+Our implementation provides both methods so the user can see the difference\footnote{Our measurements show that the difference highly depends on the algorithm setup and graph size.} between both approaches and decide whether it is necessary to loose on performance.
 
 \subsection*{Miscellaneous optimisations and cheats}
 
