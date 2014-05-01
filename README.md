@@ -25,3 +25,4 @@ Total execution times are written to stdout and `~/perftest.log` file.
 You can find logs from the best runs on `nvidia{1,2}` machines in
 `./perftest.log.best`.
 
+Copyright (c) 2014 Mateusz Machalica
